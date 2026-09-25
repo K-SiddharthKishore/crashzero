@@ -1,0 +1,13 @@
+streamlit==1.64.0
+ultralytics==8.4.163
+opencv-python==5.0.0.93
+scikit-learn==1.9.1
+pandas==3.0.6
+plotly==7.1.0
+pydeck==0.9.3
+numpy==2.5.3
+joblib==1.6.0
+lap==0.5.13
+imageio-ffmpeg==0.6.0
+requests==2.34.2
+pytest==9.1.1

@@ -1,0 +1,7 @@
+{
+  "data/historical/nyc_2024.csv": "caf4edc443f4500ba8ca5749baed06a892599ce6aedf9035f3bc8ac30878aefc",
+  "data/demo/traffic.mp4": "94a7cf22b34b63d38514d03a89882ecf3cff9a179272aa15f6e3af8431087b84",
+  "data/demo/highway.mp4": "d5477f290ab366480c9846fc5edb993f7459a41fcefc701e7868e7f4edda3a5c",
+  "data/demo/mixed_traffic.mp4": "f73f5afb841ce10b915c32c51202ed4c5fcda25ebb3a0b23695b914b74739a26",
+  "models/yolo11n.pt": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1"
+}

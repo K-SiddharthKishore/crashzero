@@ -1,0 +1,10 @@
+{
+  "name": "NYPD Motor Vehicle Collisions \u2014 Crashes",
+  "label": "REAL PUBLIC DATA \u2022 Prototype / demonstration dataset",
+  "geography": "New York City, USA (not Bengaluru)",
+  "source": "https://data.cityofnewyork.us/Public-Safety/Motor-Vehicle-Collisions-Crashes/h9gi-nx95",
+  "query_url": "https://data.cityofnewyork.us/resource/h9gi-nx95.csv?%24select=collision_id%2Ccrash_date%2Ccrash_time%2Cborough%2Clatitude%2Clongitude%2Cnumber_of_persons_injured%2Cnumber_of_persons_killed%2Cnumber_of_pedestrians_injured%2Cnumber_of_cyclist_injured%2Cvehicle_type_code1%2Cvehicle_type_code2%2Ccontributing_factor_vehicle_1%2Con_street_name&%24where=crash_date+%3E%3D+%272024-01-01T00%3A00%3A00%27+AND+crash_date+%3C+%272025-01-01T00%3A00%3A00%27&%24limit=150000&%24order=crash_date%2Ccollision_id",
+  "period": "2024 calendar year",
+  "retrieved": "2026-09-25",
+  "limitations": "Police-reported crashes only; no traffic exposure or non-crash controls. Missing coordinates and context. Injury severity is not graded; any injury is the binary ML target. No weather, lighting or road geometry fields."
+}

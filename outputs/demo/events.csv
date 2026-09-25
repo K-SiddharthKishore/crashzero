@@ -1,0 +1,17 @@
+event_id,timestamp,end_time,object_ids,classes,peak_risk,min_ttc,x,y,severity,status
+CZ-0001,0.417,2.333,"[1, 8]","['bus', 'person']",67,0.398,71.24,444.12,HIGH,unresolved / track lost
+CZ-0002,1.25,2.333,"[1, 13]","['bus', 'person']",62,0.668,24.38,430.98,HIGH,unresolved / track lost
+CZ-0003,1.25,2.333,"[1, 15]","['bus', 'person']",64,0.252,109.09,438.3,HIGH,unresolved / track lost
+CZ-0004,1.333,2.333,"[1, 11]","['bus', 'person']",65,0.137,139.27,446.91,HIGH,unresolved / track lost
+CZ-0006,4.917,6.167,"[8, 135]","['person', 'bus']",70,0.884,75.01,456.73,HIGH,unresolved / track lost
+CZ-0005,4.917,6.333,"[49, 135]","['person', 'bus']",75,0.794,45.52,456.72,HIGH,unresolved / track lost
+CZ-0007,5.25,6.333,"[9, 135]","['car', 'bus']",61,0.388,195.78,510.64,HIGH,unresolved / track lost
+CZ-0012,11.583,12.833,"[218, 230]","['person', 'bus']",65,0.835,119.65,410.86,HIGH,unresolved / track lost
+CZ-0008,10.917,12.917,"[49, 230]","['person', 'bus']",72,1.155,53.26,422.97,HIGH,unresolved / track lost
+CZ-0009,11.0,12.917,"[8, 230]","['person', 'bus']",72,1.018,84.21,421.35,HIGH,unresolved / track lost
+CZ-0010,11.25,13.0,"[11, 230]","['person', 'bus']",65,0.71,139.49,422.03,HIGH,unresolved / track lost
+CZ-0011,11.25,13.0,"[94, 230]","['person', 'bus']",66,1.221,34.71,403.88,HIGH,unresolved / track lost
+CZ-0013,12.167,13.333,"[94, 268]","['person', 'car']",66,1.506,32.7,410.08,HIGH,unresolved / track lost
+CZ-0014,12.167,13.333,"[49, 268]","['person', 'car']",64,1.413,52.8,416.51,HIGH,unresolved / track lost
+CZ-0015,15.417,15.75,"[49, 392]","['person', 'car']",64,1.708,48.85,410.17,HIGH,unresolved / clip ended
+CZ-0016,15.417,15.75,"[8, 392]","['person', 'car']",62,1.564,78.09,410.52,HIGH,unresolved / clip ended

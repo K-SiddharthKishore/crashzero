@@ -1,0 +1,19 @@
+:root{--mint:#67e8b5;--muted:#8c9eb6}
+.stApp{background:radial-gradient(ellipse at 85% 0%,#122238 0%,#080f19 48%)}
+.block-container{padding-top:2.2rem;padding-bottom:2rem;max-width:1550px}
+header[data-testid=stHeader]{background:transparent}
+[data-testid=stSidebar]{background:#0c1522;border-right:1px solid #253144}
+[data-testid=stSidebar] .block-container{padding-top:1rem}
+h1,h2,h3{letter-spacing:-.035em}h1{font-weight:750!important}
+p,li{line-height:1.55}
+.brand{font-size:26px;font-weight:900;letter-spacing:.04em}.brand span{color:#67e8b5}
+.eyebrow{font-size:10px;letter-spacing:.19em;color:#67e8b5;font-weight:700;text-transform:uppercase;margin-bottom:10px}
+.hero{padding:26px 30px;background:linear-gradient(115deg,#152b34,#132034 65%,#17213c);border:1px solid #2c4052;border-radius:16px;margin-bottom:24px;position:relative}
+.hero h1{font-size:40px;margin:0 0 6px}.hero p{color:#a6b6ca;margin:0;font-size:15px}.hero .quote{margin-top:16px;color:#dce7f3;font-size:14px;max-width:750px}
+.card{border:1px solid #27364a;background:#101b2a;border-radius:13px;padding:20px 21px;min-height:148px;margin-bottom:14px}.card .label{color:#92a3ba;text-transform:uppercase;font-size:10px;font-weight:700;letter-spacing:.12em}.card .value{font-size:36px;font-weight:750;letter-spacing:-.04em;line-height:1.5}.card .sub{font-size:11px;color:#8297af}.pill{display:inline-block;border-radius:5px;font-size:9px;font-weight:800;letter-spacing:.08em;padding:4px 7px;background:#1b3340;color:#67e8b5;margin:3px 4px 3px 0}.section{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:12px 0}.muted{color:#8c9eb6;font-size:12px}.line{height:1px;background:#27364a;margin:20px 0}.footer{font-size:11px;color:#71849b;padding-top:20px;border-top:1px solid #263246;margin-top:32px}
+[data-testid=stMetric]{background:#101b2a;padding:16px;border:1px solid #27364a;border-radius:12px}
+.stButton button{border-radius:9px;min-height:42px;font-weight:650}.stDownloadButton button{border-radius:8px}
+[data-testid=stAlert]{border-radius:10px}
+[data-testid=stSidebar] [role=radiogroup]{gap:6px}
+[data-testid=stSidebar] [role=radiogroup] label{padding:7px 10px;border-radius:6px}
+@media(max-width:800px){.hero h1{font-size:28px}.hero{padding:20px}.card{min-height:130px;padding:15px}.card .value{font-size:28px}}
