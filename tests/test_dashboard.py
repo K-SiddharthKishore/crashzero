@@ -3,7 +3,7 @@ import pytest
 from config.settings import ROOT
 @pytest.fixture(scope='module')
 def app(): return AppTest.from_file(str(ROOT/'app.py'),default_timeout=40).run()
-@pytest.mark.parametrize('page',['Overview','City Risk','Historical Analysis','Future Prediction','Live CCTV','Near Misses','Risk Hotspots','About'])
+@pytest.mark.parametrize('page',['Overview','City Risk','History','Future Risk','Live Analysis','Near Misses','Conflict Zones','About'])
 def test_page(app,page):
     app.sidebar.radio[0].set_value(page).run()
     assert not app.exception
