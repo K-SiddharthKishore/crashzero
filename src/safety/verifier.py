@@ -32,7 +32,7 @@ class CrashVerifier:
         if v is not None:
             speed = float(np.linalg.norm(v)); old = s['velocity']
             if old is not None:
-                while len(s['velocities'])>1 and t-s['velocities'][1][0] >= .4:
+                while len(s['velocities'])>1 and t-s['velocities'][1][0] >= c.heading_window:
                     s['velocities'].popleft()
                 turn_reference = s['velocities'][0][1] if s['velocities'] else old
                 prev = float(np.linalg.norm(turn_reference))
@@ -44,7 +44,7 @@ class CrashVerifier:
                 if min(prev,speed) >= c.moving_speed:
                     angle = math.degrees(math.acos(float(np.clip(turn_reference@v/(prev*speed),-1,1))))
                     if angle >= c.heading_degrees: s['turn_at'] = t
-            s['peak_speed'] = max(speed, s['peak_speed']*.96)
+            s['peak_speed'] = max(speed, s['peak_speed']*c.peak_speed_decay)
             s['velocity'] = v; s['velocities'].append((t,v.copy()))
             if speed < c.stopped_speed:
                 if s['stop_since'] is None: s['stop_since'] = t
@@ -58,7 +58,7 @@ class CrashVerifier:
         features = {i:self._features(tr,t) for i,tr in eligible.items()}
         for pair in interactions:
             if pair['risk'] >= 61: self.recent_pairs[tuple(pair['ids'])] = (t,pair)
-        self.recent_pairs = {k:v for k,v in self.recent_pairs.items() if t-v[0] <= 1.5}
+        self.recent_pairs = {k:v for k,v in self.recent_pairs.items() if t-v[0] <= c.convergence_memory}
         self.cooldowns = [r for r in self.cooldowns if t-r['until'] < 0]
         self.motion = {i:s for i,s in self.motion.items() if t-s['last'] < 3}
         proposals = []
@@ -67,12 +67,12 @@ class CrashVerifier:
             a,b = (eligible[i] for i in ids)
             close = np.linalg.norm(a.position-b.position) < (a.radius+b.radius)*c.proximity_scale
             # Must have observed convergence AND motion change AND proximity.
-            changes = [t-features[i]['decel_at'] <= .7 or t-features[i]['turn_at'] <= .7 for i in ids]
+            changes = [t-features[i]['decel_at'] <= c.recent_motion_seconds or t-features[i]['turn_at'] <= c.recent_motion_seconds for i in ids]
             if close and any(changes): proposals.append((ids, pair, False))
         paired_ids = {i for ids,_,_ in proposals for i in ids}
         for i,s in features.items():
             # A normal stop or a legal turn alone cannot trigger a single-vehicle candidate.
-            if eligible[i].cls!='person' and i not in paired_ids and t-s['decel_at'] <= .7 and t-s['turn_at'] <= 1.0:
+            if eligible[i].cls!='person' and i not in paired_ids and t-s['decel_at'] <= c.recent_motion_seconds and t-s['turn_at'] <= c.event_heading_seconds:
                 tr = eligible[i]
                 proposals.append(((i,), {'x':float(tr.position[0]),'y':float(tr.position[1])}, True))
         for ids,pair,single in proposals:
@@ -95,8 +95,8 @@ class CrashVerifier:
                 if gap <= c.observation_gap: event['observed_seconds'] += gap
                 else: event['missing'] = True
                 event['last_observed'] = t
-                decels = [abs(features[i]['decel_at']-event['timestamp']) <= .8 for i in ids]
-                turns = [abs(features[i]['turn_at']-event['timestamp']) <= 1. for i in ids]
+                decels = [abs(features[i]['decel_at']-event['timestamp']) <= c.event_deceleration_seconds for i in ids]
+                turns = [abs(features[i]['turn_at']-event['timestamp']) <= c.event_heading_seconds for i in ids]
                 e['deceleration_anomaly'] = max(e['deceleration_anomaly'],float(any(decels)))
                 e['heading_anomaly'] = max(e['heading_anomaly'],float(any(turns)))
                 e['simultaneous_motion_change'] = max(e['simultaneous_motion_change'],float(len(ids)>1 and all(decels)))
@@ -112,7 +112,7 @@ class CrashVerifier:
                 weights = {'deceleration_anomaly':.3,'heading_anomaly':.2,'post_event_stop':.3,'temporal_persistence':.2}
             score = sum(e[k]*w for k,w in weights.items())
             strong = (present and not event['missing'] and e['deceleration_anomaly'] and e['post_event_stop']
-                      and e['temporal_persistence'] >= .85 and event['observations'] >= 5)
+                      and e['temporal_persistence'] >= c.minimum_coverage and event['observations'] >= c.minimum_verification_observations)
             if event['single']: strong = strong and e['heading_anomaly']
             else: strong = strong and e['simultaneous_motion_change'] and e['trajectory_convergence']
             state = ('LIKELY SINGLE-VEHICLE ACCIDENT' if event['single'] else 'LIKELY COLLISION') if strong and score>=c.likely_score else 'UNCERTAIN'

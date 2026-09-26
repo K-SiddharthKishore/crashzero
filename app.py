@@ -61,6 +61,8 @@ def render_status(s):
     if s.get('candidates'):
         st.warning('POSSIBLE ACCIDENT · VERIFYING…')
         for e in s['candidates']:
+            from config.v2 import SAFETY
+            st.progress(min(1.,e['observed_seconds']/SAFETY.verification_seconds),text='Collecting temporal evidence')
             for key,value in e['evidence_signals'].items():
                 if value: st.caption('✓ '+key.replace('_',' ').title())
     elif s.get('results'):
@@ -180,7 +182,7 @@ else:
                     if incident.get(key) and Path(incident[key]).exists():st.image(incident[key],width='stretch')
                     else: st.caption('Capturing…')
             st.write(' · '.join(f"{kind.title()} #{tid}" for kind,tid in zip(incident['road_users'],incident['track_ids'])))
-            st.write(f"{incident['camera_name']} · {incident['location']}")
+            st.write(f"{incident.get('camera_name',incident.get('name','Unknown camera'))} · {incident['location']}")
             st.caption(f"Source offset {incident['timestamp']:.2f}s · Recorded {incident['created_at']} · Heuristic evidence {incident['evidence_score']:.0%} (not probability)")
             for key,value in incident['evidence_signals'].items():st.caption(('✓ ' if value else '— ')+key.replace('_',' ').title())
             st.info(incident['alert_status']+' · SIMULATED / NO EXTERNAL CONTACT')

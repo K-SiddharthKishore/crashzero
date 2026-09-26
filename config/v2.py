@@ -11,6 +11,15 @@ class SafetyConfig:
     stopped_speed: float = 8.0
     deceleration_fraction: float = .65
     heading_degrees: float = 65.0
+    heading_window: float = .4
+    peak_speed_decay: float = .96
+    convergence_memory: float = 1.5
+    recent_motion_seconds: float = .7
+    event_deceleration_seconds: float = .8
+    event_heading_seconds: float = 1.0
+    minimum_coverage: float = .85
+    minimum_verification_observations: int = 5
+    minimum_display_observations: int = 3
     observation_gap: float = .5
     verification_seconds: float = 2.0
     stop_seconds: float = .8

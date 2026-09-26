@@ -1,135 +1,108 @@
-# CRASHZERO
-### Predict Risk Before Impact
+# CrashZero V2
 
-> We don't want a crash to be the first data point telling us that an intersection is dangerous.
+**Predict Risk Before Impact**
 
-CrashZero is a local, offline-capable road-safety prototype for an Apple Silicon Mac. It brings together **past crash evidence**, **present traffic trajectories**, and **context-dependent injury estimates**. It helps demonstrate how dangerous interactions can motivate investigation before a crash history accumulates.
+CrashZero watches traffic before, during and after dangerous events — identifying conflict zones, detecting likely accidents and preserving the information needed for faster response.
 
-## Start the demo
+A local hackathon prototype with exactly three primary screens: **Live Analysis**, **Conflict Zones**, and **Incidents**. No real emergency service is contacted. Evidence scores are configurable heuristics, not calibrated probabilities.
 
-From this project directory:
+## Run on this Mac
 
 ```bash
+cd /Users/siddharth/Documents/crashzero
 ./run.sh
 ```
 
-Open **http://localhost:8501**. Stop with Ctrl+C. Run the same command to restart. The installed Python 3.12 virtual environment, model weights, dataset, demo footage and preprocessed results are already local. No login or internet is needed for the default demo. The optional street basemap needs internet; the default geographic plot does not.
-
-1. **Overview**: camera evidence and separate NYC context.
-2. **Live CCTV**: cached playback immediately; click **Analyze video** to run fresh YOLO inference.
-3. **Near Misses**: inspect resolved candidates, overlap/review and unresolved episodes.
-4. **Risk Hotspots**: camera-space conflict density and interaction types.
-5. **Historical Analysis / City Risk**: filter authentic NYC crash data.
-6. **Future Prediction**: choose borough, day and vehicle context, inspect timeline and model evaluation.
-
-Backup: open `outputs/demo_processed.mp4` in any video player. `outputs/demo/analytics.json`, `events.csv`, `tracks.csv`, `preview.jpg` and `heatmap.jpg` contain the matching cached analysis. No warnings or events are inserted into the video manually.
-
-## Features and architecture
-
-```text
-Local MP4/MOV/AVI → YOLO11n → ByteTrack → bounded trajectory history
-  → least-squares velocity (pixels/second) → 2.5-second motion projection
-  → simultaneous closest approach → risk index → deduplicated episodes
-  → H.264 annotated video + heatmap + CSV + JSON + SQLite
-
-NYC police-reported crashes → cleaning + geospatial validation → patterns
-  → temporal train/test split → Random Forest conditional-injury model
-  → hourly scenario estimates → transparent available-source fusion
-```
-
-Eight Streamlit views provide interactive geographic plots, severity and time filters, historical charts, conditional-injury timelines, local uploads, cached and fresh inference, exports, explanations, event records and camera-space hotspots. Dark styling is local; no external font dependency. Empty histories, empty filtered results, videos with no detections, missing source components and invalid videos have explicit states.
-
-## AI / ML and measurement
-
-**YOLO11n** is a pretrained Ultralytics COCO detector. Retained classes are person, bicycle, car, motorcycle, bus and truck. **ByteTrack** associates boxes into anonymous per-session IDs. Classes and IDs may fragment or switch; unique IDs are not a reliable physical traffic census.
-
-Bottom-center observations are fitted against **source video timestamps**, using up to 1.2 seconds / 40 observations. Five observations and at least 0.4 seconds are required before forecasting. Tracks reset after a gap >0.5 seconds and stale histories are removed. Linear velocity yields a 2.5-second projection. Solid lines are observed trails; cyan dashed lines are projections. No km/h, metre or calibrated speed is reported.
-
-For each converging pair, let relative position be `r` and relative velocity `v`. Closest-approach time is `clip(-r·v / |v|², 0, 2.5)`, with separation `|r+v*t|`. This is the continuous-time minimum of the constant-velocity model, not infinite-line intersection. Parallel, separating, distant, poorly fitted and minimally converging pairs are excluded. The time displayed is **estimated time to minimum image-space separation**, not certified TTC.
-
-Combined image footprint = sum of `max(7 px, .42 × min(box width, box height))`.
-
-```text
-proximity = clip(1 - minimum separation / (1.4 × combined footprint), 0, 1)
-urgency = clip(1 - time to closest approach / 2.5, 0, 1)
-convergence = clip(approach speed / combined footprint, 0, 1)
-confidence = minimum trajectory stability × capped minimum detector confidence
-pair score = round(100 × (.40 proximity + .30 urgency + .20 convergence
-                         + .10 vulnerable-user flag) × (.55 + .45 confidence))
-```
-
-All scores are deterministic heuristic indices, **not calibrated crash probabilities**. Thresholds are centralized in `config/settings.py`: 0–30 LOW, 31–60 MODERATE, 61–80 HIGH, 81–100 CRITICAL. The live clip index is the 90th percentile of frame maximum pair scores; the peak and final-frame scores are shown separately.
-
-**Near-miss logic:** an episode starts at score ≥61. Its peak, minimum predicted separation time, classes and location are retained. It becomes a **prototype near miss** only after both tracks visibly separate beyond 1.5 combined footprints for ≥0.5 seconds without any observed bounding-box overlap during the episode. Overlap produces **overlap / review**, not a crash declaration. Lost tracks and the end of a clip are **unresolved**. A 3-second pair cooldown prevents repeated counts. This conservative test cannot rule out unseen physical contact. Video is a source for human review, not near-miss ground truth.
-
-The heatmap places **one point per high-risk episode** at its peak-risk location and applies a 25-pixel Gaussian blur. It does not count every frame as an independent conflict. Projected locations outside the image remain in event exports but are excluded from the heatmap.
-
-## Historical dataset
-
-**REAL PUBLIC DATA · Prototype / demonstration dataset**
-
-- Dataset: NYPD Motor Vehicle Collisions — Crashes, NYC Open Data.
-- Geography: **New York City, USA. Not Bengaluru.**
-- Period: full 2024 calendar year, queried on 2026-09-25.
-- Records: **91,316** unique crashes; **83,692** coordinates within the configured NYC extent.
-- Fields: ID, date, time, borough, coordinates, injury/fatality counts, pedestrian/cyclist injuries, vehicle types, contributing factor, street.
-- Source: https://data.cityofnewyork.us/Public-Safety/Motor-Vehicle-Collisions-Crashes/h9gi-nx95
-- API and exact query: `data/historical/source.json`.
-- Official API documentation: https://dev.socrata.com/foundry/data.cityofnewyork.us/h9gi-nx95
-- Access terms: https://opendata.cityofnewyork.us/overview/#termsofuse
-
-A short search found Bengaluru aggregate/FIR and collision-warning resources, but no quickly verified, directly usable accident table with the required date/time/location provenance. This build prioritizes the official NYC source over unverified India records. Missing coordinates are excluded only from maps, not silently removed from all analysis. The dataset can change on subsequent retrievals.
-
-No traffic exposure denominators or non-crash controls exist. Counts are **concentrations of reported incidents**, not danger per trip. Weather, lighting, surface and junction fields are unavailable. No conditions are synthesized. The map's density index is `100 × log(1+cell count)/log(1+maximum cell count)` on 0.01-degree cells. Borough historical index is count divided by the largest borough count ×100. Neither is an exposure-adjusted risk rate.
-
-## Predictive model
-
-A lightweight Random Forest predicts **any injury/fatality given a reported crash** from borough, hour, weekday and primary vehicle type. Injury counts, severity and post-crash contributing factors are not inputs. Jan–Sep 2024 is training (68,546 rows); Oct–Dec is a held-out temporal test (22,770). Fixed seed 42, 100 trees, max depth 10, minimum leaf 40. Stored model: `models/injury_model.joblib`; evaluation: `models/model_metrics.json`.
-
-Measured ROC AUC **0.6028**; Brier score **0.2356**, versus prevalence-only baseline **0.2482** (lower is better). These are modest results, not evidence of precise accident prediction. No independent camera, city or prospective validation has been performed. No probability calibration is claimed. Timeline categories apply to the conditional-injury index, not likelihood of a crash happening at that hour. Context counts and observed injury share are descriptive explanations, not causal attribution. Rare/unseen combinations have weak support.
-
-## Fusion and emerging hotspots
-
-Default source weights: historical .25, predictive .30, live .45. Missing inputs are excluded and remaining weights renormalized. Zero weights produce an unavailable index rather than division by zero. Future Prediction exposes weight controls. The index mixes different signals for prioritization; it is not a probability.
-
-**The footage's geography is unverified, so its live score is never silently fused with NYC history.** Camera Overview uses live only; NYC Overview uses historical + predictive context. The fusion engine supports all three when valid co-located data exists. Emerging logic requires verified local historical index ≤30, ≥3 distinct conflict episodes and increasing high-pair density between clip halves. With unknown historical coverage, only a **live conflict cluster** may be reported. No fabricated geographic emerging-hotspot marker is displayed.
-
-## Installation / recreation
-
-Already installed on this Mac. For a clean Python 3.12 machine:
+Open http://127.0.0.1:8501. If occupied (as it was during development):
 
 ```bash
-./setup.sh
-.venv/bin/python scripts/process_demo.py
-./run.sh
+PORT=8502 ./run.sh
 ```
 
-Setup requires internet for packages, public data and weights. `requirements.txt` pins direct dependencies; `requirements-lock.txt` records the tested Mac environment. The setup script does not change unrelated projects or install system packages. FFmpeg encoding uses the binary bundled by imageio-ffmpeg. CPU is the verified default; optional MPS is available in the interface. Inference is resolution-limited to 960 pixels and model input 640, with bounded processing duration and trajectories.
+The existing `.venv` uses Python 3.12.13. No environment replacement or new dependency installation was required. CPU is the tested default; MPS is optional and has not been benchmarked.
 
-To train again, remove only `models/injury_model.joblib` and open Future Prediction, or call `src.prediction.train(load_history())` locally. Do not load untrusted joblib/PT files.
+For a fresh environment, use the existing `./setup.sh` and pinned `requirements.txt`. Models and real demo assets must be fetched once before offline use:
 
-## Testing
+```bash
+.venv/bin/python scripts/fetch_model.py
+.venv/bin/python scripts/fetch_demo.py
+.venv/bin/python scripts/create_simulations.py
+```
+
+Model path: `models/yolo11n.pt`. The local real traffic videos and generated synthetic fixtures work offline once present. Synthetic scenario videos and their scripted detection fixtures are included in V2; regenerating them is optional.
+
+## Use
+
+- **Demo:** select a local real traffic video and Start analysis to run YOLO11n/ByteTrack. Preview alone does not run inference. For a deterministic incident workflow demonstration, choose **Collision · SYNTHETIC TEST** or **Single Bike · SYNTHETIC TEST**. These explicitly bypass detection using scripted tracks, and must not be represented as real crash detection performance.
+- **Upload video:** upload MP4/MOV/AVI/MKV, then Start analysis. Files remain local in ignored `outputs/sessions/uploads/`.
+- **Webcam:** select Live Camera → Device webcam → device index (usually 0). This is the camera attached to the Python server, not a remote browser's camera.
+- **IP/CCTV:** set `CRASHZERO_STREAM_URL` locally, restart the app, then Live Camera → IP / CCTV stream. OpenCV FFmpeg supports RTSP/HTTP where the local backend and camera codec permit it. Never commit credential-bearing URLs.
+- **Camera metadata:** configure ID/name/registered location in the gear expander, or set `CRASHZERO_CAMERA_ID`, `CRASHZERO_CAMERA_NAME`, and `CRASHZERO_CAMERA_LOCATION` before launching. Demo/upload sources are explicitly unlocated. GPS is never inferred from images.
+- **Stop:** stops processing and finalizes any evidence already being captured. Start becomes available again after finalization.
+
+On this Mac, the hardware probe returned **not authorized to capture video**. In **System Settings → Privacy & Security → Camera**, enable the application launching Python (Terminal or Codex), restart it, and retry. If no permission entry appears, launch `./run.sh` from Terminal and select Device webcam to trigger the system request. Webcam frame capture remains unverified until permission is granted.
+
+## Before / during / after
+
+**Before:** V1 detection, tracking, least-squares motion, closest-approach conflict analysis, deduplicated conflict episodes, and observed-separation near misses remain in use. Conflict Zones bins actual conflict coordinates and displays density on the source camera image. Sessions are separate so different cameras are not merged accidentally. Trends are marked unavailable without comparable observation windows.
+
+**During:** the new `CrashVerifier` collects multiple temporal signals. A pair candidate requires recent convergence, close ground-contact estimates and a motion anomaly. A single-vehicle candidate requires both deceleration and heading change. It then observes about two more seconds; a likely pair collision requires simultaneous deceleration, continued observation and a sustained stop. Overlap alone, zig-zag alone, and disappearing tracks never confirm an accident. Inconclusive candidates become uncertain or normal/near-miss interactions.
+
+**After:** a JPEG rolling buffer retains pre-event frames while temporal verification runs. Likely events create a SQLite incident and simulated internal alert, save an event image, and collect five seconds of post-event footage. An independent encoder writes a browser-playable H.264 clip. Partial windows and encoding failures are explicitly recorded. File offsets and analysis creation times are kept separate; file footage is not given fabricated capture timestamps.
+
+## Architecture
+
+```text
+OpenCV file / webcam / stream
+  → bounded latest-frame capture queue for live inputs
+  → background worker: YOLO11n → ByteTrack → trajectory store
+  → V1 conflict + near-miss manager / V2 temporal crash verifier
+  → snapshot → Streamlit Live Analysis / Conflict Zones
+  → JPEG ring → evidence encoder → SQLite incidents → DemoAlertService
+```
+
+- `app.py`: minimal V2 UI; `app_v1.py`: retained V1 interface.
+- `src/detector.py`, `src/trajectory.py`, `src/motion.py`: shared vision pipeline.
+- `src/conflicts.py`, `src/events.py`, `src/visualization.py`: preserved V1 conflict logic and overlays.
+- `src/safety/verifier.py`: temporal candidate/verification state machine.
+- `src/video/source.py`, `src/live.py`: source abstraction and worker.
+- `src/incidents/manager.py`: evidence buffer, asynchronous clip export, SQLite and demo alerts.
+- `src/zones.py`: conflict-coordinate bins.
+- `config/settings.py`: preserved V1 motion/conflict settings.
+- `config/v2.py`, `config/bytetrack-v2.yaml`: V2 thresholds/weights and tracking configuration.
+
+## Storage and troubleshooting
+
+Incidents and media: `outputs/incidents/`; session zones: `outputs/live/`; legacy analysis: `outputs/demo/` and `outputs/sessions/`. All new captured evidence and local configuration are Git-ignored. No automatic evidence deletion or external upload occurs. Disk usage should be checked before a long capture session.
+
+Missing model: run the model fetch script once online. Invalid files, model/tracker failures and camera disconnects become short UI messages. The CPU option is the fallback for device/inference issues. After a disconnected stream, check connectivity and restart analysis. Nothing attempts to guess stream credentials or precise camera location.
+
+If clip encoding fails, images and the incident survive with a failure status. If the source ends early, before/after windows are labeled partial. A browser disconnect stops an abandoned worker after about 120 seconds without UI polling.
+
+## V1 preservation and rollback
+
+The initial application had eight navigation pages, historical NYC crash analysis, a trained historical injury-context model, offline YOLO11n/ByteTrack video processing, trajectory conflicts, CSV/SQLite exports and heatmaps. These modules were retained. V2 removes historical/forecast pages from primary navigation; the original interface is available through:
+
+```bash
+.venv/bin/python -m streamlit run app_v1.py --server.address 127.0.0.1 --server.port 8503
+```
+
+That interface shares current vision modules. For the exact pre-upgrade application, stop V2 and switch to the checkpoint branch (first preserve any new working edits):
+
+```bash
+git switch crashzero-v1-fallback
+PORT=8503 ./run.sh
+```
+
+Checkpoint: `d8354ba` (`checkpoint: CrashZero V1 before V2 upgrade`). V2 branch: `crashzero-v2`. Local model/video assets remain present when switching branches. The original guide is [README_V1.md](README_V1.md).
+
+## Validation and demo
 
 ```bash
 .venv/bin/python -m pytest -q
+.venv/bin/python scripts/benchmark_tracking.py
 ```
 
-Analytic synthetic fixtures test simultaneous vs asynchronous crossing, parallel motion, source-time velocity, track gaps, near-miss deduplication, observed-overlap rejection, lost tracks, thresholds, missing-source fusion and emerging criteria. These test fixtures are **never presented as observed events**. Integration tests cover invalid/empty videos, no detections, playable output, CSV/JSON exports, real data and deterministic model inference. Streamlit AppTest exercises all eight views and map variants. Browser checks cover actual rendering, upload and playback. See `FINAL_STATUS.md` for the final verification record.
+See [HACKATHON_DEMO.md](HACKATHON_DEMO.md) for the presentation sequence, [TECHNICAL_NOTES.md](TECHNICAL_NOTES.md) for exact algorithms, and [LIMITATIONS.md](LIMITATIONS.md) for honest scope. No real-world collision accuracy percentage is claimed. This is not a validated emergency detection system.
 
-## Privacy
-
-No face recognition, identity inference or plate reading is implemented. Uploads, tracks, events and outputs stay on this Mac unless you deliberately deploy or share them. Raw footage may itself contain identifiable people or plates. Delete specific `outputs/sessions` folders to remove uploads; `outputs/events.sqlite` stores per-session event JSON. The app does not contact external inference APIs. Optional map tiles contact CARTO. Streamlit usage collection is disabled.
-
-## Limits / future scope
-
-Constant velocity does not anticipate turns, braking or evasive behavior. Uncalibrated perspective can create false conflicts, particularly across depth-separated lanes; moving cameras violate the motion assumptions. The detector may miss small aerial road users and double-detect riders as people plus motorcycles. No frame-level annotations establish precision/recall. Clip-level 90th percentile can understate rare peaks, which are shown separately. Uploaded files are capped at 200 MB and analysis at 120 seconds. Audio is removed. MOV/AVI support depends on their codecs. The app is intended for one local user, not concurrent city operations.
-
-Future architecture only: camera calibration; ground-plane trajectories; lane/road geometry; traffic exposure and signal phases; weather and traffic APIs; real CCTV ingestion; edge deployment; multi-camera fusion; spatio-temporal GNNs; trajectory Transformers; continual learning with independently labeled evaluation. None of those are claimed implemented.
-
-## Licenses
-
-Application code is supplied under AGPL-3.0-or-later to align with the Ultralytics dependency; see `LICENSE` and the upstream https://www.ultralytics.com/license. Commercial/closed-source distribution needs a separate license assessment. Footage has its own Pexels license; data has NYC Open Data terms. `data/demo/source.json` and `DATA_SOURCES.md` preserve attribution and download provenance. No person or source endorses this project.
-
-## Disclaimer
-
-“CrashZero is a hackathon research prototype. Its risk estimates are not certified collision predictions and should not be used as a standalone traffic-control or safety system.”
+Detailed measured results and remaining validation gaps: [VALIDATION.md](VALIDATION.md). The existing hosted entry point `cloud/app.py` remains a read-only V1 demo via `app_v1.py`; V2 camera/evidence workflows run locally.

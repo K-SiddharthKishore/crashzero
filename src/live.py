@@ -19,14 +19,14 @@ from src.incidents.manager import EvidenceBuffer
 from src.visualization import draw, heatmap
 
 class AnalysisWorker:
-    def __init__(self,source,camera,device='cpu',detector=None,store=None,source_kind='video',realtime=True):
+    def __init__(self,source,camera,device='cpu',detector=None,store=None,source_kind='video',realtime=True,output_dir=None):
         self.source=source; self.camera=camera; self.device=device; self.detector=detector
         self.incident_store=store; self.source_kind=source_kind; self.realtime=realtime
         self.stop_event=threading.Event(); self.lock=threading.Lock()
         self.snapshot={'status':'STARTING','frame':None,'events':[],'candidates':[],'results':[],
                        'risk':0,'road_users':0,'conflicts':0,'near_misses':0,'fps':0.,'timestamp':0.}
         self.thread=None; self.last_poll=time.monotonic()
-        self.out=ROOT/'outputs/live'/uuid.uuid4().hex[:12]
+        self.out=Path(output_dir) if output_dir is not None else ROOT/'outputs/live'/uuid.uuid4().hex[:12]
     def start(self):
         self.thread=threading.Thread(target=self._run,daemon=True,name='CrashZero-analysis'); self.thread.start(); return self
     def stop(self): self.stop_event.set()
@@ -63,13 +63,14 @@ class AnalysisWorker:
                 interactions=detect_conflicts(active); manager.update(interactions,active,t)
                 verified=verifier.update(active,interactions,t)
                 near=sum(e['status']=='prototype near miss' for e in manager.events)
-                annotated=draw(frame.copy(),active,interactions,t,near)
+                visible={i:tr for i,tr in active.items() if tr.confidence>=SAFETY.minimum_confidence and len(tr.history)>=SAFETY.minimum_display_observations}
+                annotated=draw(frame.copy(),visible,interactions,t,near)
                 evidence.add(t,annotated)
                 for event in verified:
                     if event['state'].startswith('LIKELY'): evidence.trigger(event)
                 processed+=1
                 self._publish(status='MONITORING',frame=cv2.cvtColor(annotated,cv2.COLOR_BGR2RGB),
-                    risk=max([i['risk'] for i in interactions],default=0),road_users=len(active),
+                    risk=max([i['risk'] for i in interactions],default=0),road_users=len(visible),
                     conflicts=len(manager.active),near_misses=near,events=copy.deepcopy(manager.events),
                     candidates=copy.deepcopy(list(verifier.candidates.values())),results=list(verifier.results),
                     timestamp=t,fps=processed/max(time.monotonic()-start,.01),

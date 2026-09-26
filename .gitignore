@@ -16,3 +16,6 @@ outputs/incidents/
 outputs/live/
 config/cameras.local.json
 .claude/
+outputs/tracking_*.json
+outputs/tracking_*.jpg
+outputs/safety_evaluation.json

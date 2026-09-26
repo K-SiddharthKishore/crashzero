@@ -1,0 +1,17 @@
+# Prototype limitations
+
+- **Not a validated crash detector.** No labeled real accident evaluation set was available. Synthetic scenarios verify engineering behavior only and explicitly bypass YOLO. They provide no real-world precision, recall, sensitivity or accuracy claim.
+- **2D perspective:** pixel proximity and projected closest approach are not real physical contact, distance, speed or calibrated TTC. No homography, road-plane calibration or movement corridor is implemented.
+- **Ambiguous motion:** emergency braking, a sharp legal turn followed by a stop, detector jitter or an ID switch can resemble an accident. Slow impacts, falls, occluded crashes and collisions where vehicles continue moving can be missed. Single-vehicle detection is particularly uncertain.
+- **Limited appearance evidence:** no direct contact, impact, vehicle rotation, fall pose, smoke or debris classifier. Boxes do not establish a crash. A sufficiently convincing combination of tracking errors can still pass heuristic gates.
+- **Occlusion and tracking:** ByteTrack has no appearance re-identification here. IDs can switch or fragment. Short gaps are tolerated by tracking; longer gaps cause uncertainty. New-track confidence may miss weak/small road users. Short-track diagnostics are not identity accuracy metrics.
+- **Camera conditions:** night, glare, rain, low resolution, camera motion and crowds are not validated. Fixed cameras are assumed. All motion thresholds depend on view scale and perspective.
+- **Hardware:** CPU was exercised on the provided environment. MPS was not benchmarked. Webcam capture could not be validated because macOS denied access. No physical IP/RTSP camera was available. OpenCV codec/backend support determines stream compatibility.
+- **Timing:** uploaded/demo event timestamps are source offsets, not inferred recording dates. Webcam/network capture has device/backend latency. Dropped live frames and long observation gaps can prevent verification. The Streamlit image preview refreshes at about 2 FPS even when inference runs faster; this is not a full-rate video streaming frontend.
+- **Evidence:** source start/end can truncate before/after footage. Encoder failure retains images and records the failure. Clips have no audio. Full source video is not recorded. Abrupt process termination can interrupt post-event capture; normal Stop finalizes pending clips.
+- **Zones:** spatial bins are camera-image regions, not city geography. Sessions are not merged across cameras. Counts lack exposure normalization. One or two events are not a statistically validated hotspot; trend remains unavailable.
+- **Deduplication:** cooldown is session-local and can suppress a nearby independent event. Replaying a clip creates a new session and can create another incident. Separate physical events more than 12 seconds apart can create separate records.
+- **Local storage:** no cloud backup, authentication, retention policy or multi-operator access control. Bind to localhost. Incident files contain traffic imagery; protect the host and manage retention manually. A long-running session's conflict list can grow and should be restarted between demonstrations.
+- **Alerts:** simulated internal records only. No emergency service is contacted; no credentials or public emergency integration are included.
+
+This prototype supports a defensible hackathon demonstration of the pipeline and evidence workflow. It must not be used as the sole trigger for real emergency response.

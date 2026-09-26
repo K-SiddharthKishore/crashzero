@@ -61,6 +61,7 @@ class EvidenceBuffer:
         now=datetime.now(timezone.utc).isoformat()
         record = {**event, **self.camera.metadata(), 'incident_id':incident_id, 'created_at':now,
             'event_type':event['state'], 'verification_status':event['state'],
+            'camera_name':self.camera.name, 'registered_location':self.camera.location,
             'source_kind':self.source_kind, 'time_basis':'source offset in seconds' if self.source_kind!='live camera' else 'capture clock',
             'observed_at':(self.started_at+timedelta(seconds=event['timestamp'])).isoformat() if self.source_kind=='live camera' else None,
             'screenshot_path':str(folder/'event.jpg'),'before_path':str(folder/'before.jpg'),
