@@ -1,0 +1,14 @@
+.venv/
+.cache/
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+.env*
+.streamlit/secrets.toml
+models/*.pt
+models/*.joblib
+data/demo/*original*
+outputs/sessions/
+outputs/*.sqlite*
+outputs/*.log

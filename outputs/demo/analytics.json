@@ -1,0 +1,1485 @@
+{
+  "session_id": "94a7cf22b34b-demo",
+  "source_file": "traffic.mp4",
+  "source_sha256": "94a7cf22b34b63d38514d03a89882ecf3cff9a179272aa15f6e3af8431087b84",
+  "device": "cpu",
+  "duration": 15.83,
+  "source_fps": 12.0,
+  "analysis_fps": 12.0,
+  "frames_analyzed": 190,
+  "width": 960,
+  "height": 540,
+  "inference_seconds": 8.15,
+  "throughput_fps": 23.32,
+  "road_users": 63,
+  "class_counts": {
+    "bus": 4,
+    "car": 29,
+    "person": 20,
+    "truck": 10
+  },
+  "peak_risk": 75,
+  "live_risk": 64.1,
+  "current_risk": 52,
+  "high_interactions": 16,
+  "critical_interactions": 0,
+  "near_misses": 0,
+  "conflict_types": {
+    "bus \u2194 person": 11,
+    "bus \u2194 car": 1,
+    "car \u2194 person": 4
+  },
+  "events": [
+    {
+      "event_id": "CZ-0001",
+      "timestamp": 0.417,
+      "object_ids": [
+        1,
+        8
+      ],
+      "classes": [
+        "bus",
+        "person"
+      ],
+      "peak_risk": 67,
+      "min_ttc": 0.398,
+      "x": 71.24,
+      "y": 444.12,
+      "status": "unresolved / track lost",
+      "end_time": 2.333,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0002",
+      "timestamp": 1.25,
+      "object_ids": [
+        1,
+        13
+      ],
+      "classes": [
+        "bus",
+        "person"
+      ],
+      "peak_risk": 62,
+      "min_ttc": 0.668,
+      "x": 24.38,
+      "y": 430.98,
+      "status": "unresolved / track lost",
+      "end_time": 2.333,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0003",
+      "timestamp": 1.25,
+      "object_ids": [
+        1,
+        15
+      ],
+      "classes": [
+        "bus",
+        "person"
+      ],
+      "peak_risk": 64,
+      "min_ttc": 0.252,
+      "x": 109.09,
+      "y": 438.3,
+      "status": "unresolved / track lost",
+      "end_time": 2.333,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0004",
+      "timestamp": 1.333,
+      "object_ids": [
+        1,
+        11
+      ],
+      "classes": [
+        "bus",
+        "person"
+      ],
+      "peak_risk": 65,
+      "min_ttc": 0.137,
+      "x": 139.27,
+      "y": 446.91,
+      "status": "unresolved / track lost",
+      "end_time": 2.333,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0006",
+      "timestamp": 4.917,
+      "object_ids": [
+        8,
+        135
+      ],
+      "classes": [
+        "person",
+        "bus"
+      ],
+      "peak_risk": 70,
+      "min_ttc": 0.884,
+      "x": 75.01,
+      "y": 456.73,
+      "status": "unresolved / track lost",
+      "end_time": 6.167,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0005",
+      "timestamp": 4.917,
+      "object_ids": [
+        49,
+        135
+      ],
+      "classes": [
+        "person",
+        "bus"
+      ],
+      "peak_risk": 75,
+      "min_ttc": 0.794,
+      "x": 45.52,
+      "y": 456.72,
+      "status": "unresolved / track lost",
+      "end_time": 6.333,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0007",
+      "timestamp": 5.25,
+      "object_ids": [
+        9,
+        135
+      ],
+      "classes": [
+        "car",
+        "bus"
+      ],
+      "peak_risk": 61,
+      "min_ttc": 0.388,
+      "x": 195.78,
+      "y": 510.64,
+      "status": "unresolved / track lost",
+      "end_time": 6.333,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0012",
+      "timestamp": 11.583,
+      "object_ids": [
+        218,
+        230
+      ],
+      "classes": [
+        "person",
+        "bus"
+      ],
+      "peak_risk": 65,
+      "min_ttc": 0.835,
+      "x": 119.65,
+      "y": 410.86,
+      "status": "unresolved / track lost",
+      "end_time": 12.833,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0008",
+      "timestamp": 10.917,
+      "object_ids": [
+        49,
+        230
+      ],
+      "classes": [
+        "person",
+        "bus"
+      ],
+      "peak_risk": 72,
+      "min_ttc": 1.155,
+      "x": 53.26,
+      "y": 422.97,
+      "status": "unresolved / track lost",
+      "end_time": 12.917,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0009",
+      "timestamp": 11.0,
+      "object_ids": [
+        8,
+        230
+      ],
+      "classes": [
+        "person",
+        "bus"
+      ],
+      "peak_risk": 72,
+      "min_ttc": 1.018,
+      "x": 84.21,
+      "y": 421.35,
+      "status": "unresolved / track lost",
+      "end_time": 12.917,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0010",
+      "timestamp": 11.25,
+      "object_ids": [
+        11,
+        230
+      ],
+      "classes": [
+        "person",
+        "bus"
+      ],
+      "peak_risk": 65,
+      "min_ttc": 0.71,
+      "x": 139.49,
+      "y": 422.03,
+      "status": "unresolved / track lost",
+      "end_time": 13.0,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0011",
+      "timestamp": 11.25,
+      "object_ids": [
+        94,
+        230
+      ],
+      "classes": [
+        "person",
+        "bus"
+      ],
+      "peak_risk": 66,
+      "min_ttc": 1.221,
+      "x": 34.71,
+      "y": 403.88,
+      "status": "unresolved / track lost",
+      "end_time": 13.0,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0013",
+      "timestamp": 12.167,
+      "object_ids": [
+        94,
+        268
+      ],
+      "classes": [
+        "person",
+        "car"
+      ],
+      "peak_risk": 66,
+      "min_ttc": 1.506,
+      "x": 32.7,
+      "y": 410.08,
+      "status": "unresolved / track lost",
+      "end_time": 13.333,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0014",
+      "timestamp": 12.167,
+      "object_ids": [
+        49,
+        268
+      ],
+      "classes": [
+        "person",
+        "car"
+      ],
+      "peak_risk": 64,
+      "min_ttc": 1.413,
+      "x": 52.8,
+      "y": 416.51,
+      "status": "unresolved / track lost",
+      "end_time": 13.333,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0015",
+      "timestamp": 15.417,
+      "object_ids": [
+        49,
+        392
+      ],
+      "classes": [
+        "person",
+        "car"
+      ],
+      "peak_risk": 64,
+      "min_ttc": 1.708,
+      "x": 48.85,
+      "y": 410.17,
+      "status": "unresolved / clip ended",
+      "end_time": 15.75,
+      "severity": "HIGH"
+    },
+    {
+      "event_id": "CZ-0016",
+      "timestamp": 15.417,
+      "object_ids": [
+        8,
+        392
+      ],
+      "classes": [
+        "person",
+        "car"
+      ],
+      "peak_risk": 62,
+      "min_ttc": 1.564,
+      "x": 78.09,
+      "y": 410.52,
+      "status": "unresolved / clip ended",
+      "end_time": 15.75,
+      "severity": "HIGH"
+    }
+  ],
+  "timeline": [
+    {
+      "timestamp": 0.0,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 0.083,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 0.167,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 0.25,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 0.333,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 0.417,
+      "risk": 62,
+      "active_tracks": 14,
+      "high_pairs": 1
+    },
+    {
+      "timestamp": 0.5,
+      "risk": 60,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 0.583,
+      "risk": 59,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 0.667,
+      "risk": 57,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 0.75,
+      "risk": 58,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 0.833,
+      "risk": 60,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 0.917,
+      "risk": 61,
+      "active_tracks": 14,
+      "high_pairs": 1
+    },
+    {
+      "timestamp": 1.0,
+      "risk": 57,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 1.083,
+      "risk": 60,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 1.167,
+      "risk": 57,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 1.25,
+      "risk": 62,
+      "active_tracks": 15,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 1.333,
+      "risk": 67,
+      "active_tracks": 14,
+      "high_pairs": 3
+    },
+    {
+      "timestamp": 1.417,
+      "risk": 20,
+      "active_tracks": 12,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 1.5,
+      "risk": 18,
+      "active_tracks": 11,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 1.583,
+      "risk": 0,
+      "active_tracks": 12,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 1.667,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 1.75,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 1.833,
+      "risk": 0,
+      "active_tracks": 12,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 1.917,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.0,
+      "risk": 7,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.083,
+      "risk": 9,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.167,
+      "risk": 13,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.25,
+      "risk": 14,
+      "active_tracks": 12,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.333,
+      "risk": 14,
+      "active_tracks": 12,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.417,
+      "risk": 14,
+      "active_tracks": 11,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.5,
+      "risk": 12,
+      "active_tracks": 11,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.583,
+      "risk": 11,
+      "active_tracks": 9,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.667,
+      "risk": 9,
+      "active_tracks": 11,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.75,
+      "risk": 7,
+      "active_tracks": 12,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.833,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 2.917,
+      "risk": 5,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.0,
+      "risk": 3,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.083,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.167,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.25,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.333,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.417,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.5,
+      "risk": 53,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.583,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.667,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.75,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.833,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 3.917,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.0,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.083,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.167,
+      "risk": 18,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.25,
+      "risk": 0,
+      "active_tracks": 12,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.333,
+      "risk": 0,
+      "active_tracks": 11,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.417,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.5,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.583,
+      "risk": 0,
+      "active_tracks": 11,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.667,
+      "risk": 0,
+      "active_tracks": 12,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.75,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.833,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 4.917,
+      "risk": 73,
+      "active_tracks": 13,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 5.0,
+      "risk": 67,
+      "active_tracks": 13,
+      "high_pairs": 1
+    },
+    {
+      "timestamp": 5.083,
+      "risk": 75,
+      "active_tracks": 14,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 5.167,
+      "risk": 65,
+      "active_tracks": 14,
+      "high_pairs": 1
+    },
+    {
+      "timestamp": 5.25,
+      "risk": 61,
+      "active_tracks": 15,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 5.333,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 5.417,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 5.5,
+      "risk": 27,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 5.583,
+      "risk": 31,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 5.667,
+      "risk": 39,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 5.75,
+      "risk": 42,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 5.833,
+      "risk": 45,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 5.917,
+      "risk": 44,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.0,
+      "risk": 49,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.083,
+      "risk": 46,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.167,
+      "risk": 46,
+      "active_tracks": 19,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.25,
+      "risk": 44,
+      "active_tracks": 19,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.333,
+      "risk": 45,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.417,
+      "risk": 53,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.5,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.583,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.667,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.75,
+      "risk": 19,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.833,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 6.917,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.0,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.083,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.167,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.25,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.333,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.417,
+      "risk": 0,
+      "active_tracks": 13,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.5,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.583,
+      "risk": 0,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.667,
+      "risk": 0,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.75,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.833,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 7.917,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.0,
+      "risk": 41,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.083,
+      "risk": 44,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.167,
+      "risk": 57,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.25,
+      "risk": 59,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.333,
+      "risk": 58,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.417,
+      "risk": 57,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.5,
+      "risk": 57,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.583,
+      "risk": 56,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.667,
+      "risk": 56,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.75,
+      "risk": 24,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.833,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 8.917,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.0,
+      "risk": 0,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.083,
+      "risk": 0,
+      "active_tracks": 19,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.167,
+      "risk": 18,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.25,
+      "risk": 21,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.333,
+      "risk": 26,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.417,
+      "risk": 29,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.5,
+      "risk": 30,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.583,
+      "risk": 31,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.667,
+      "risk": 29,
+      "active_tracks": 19,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.75,
+      "risk": 28,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.833,
+      "risk": 32,
+      "active_tracks": 19,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 9.917,
+      "risk": 48,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.0,
+      "risk": 40,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.083,
+      "risk": 59,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.167,
+      "risk": 54,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.25,
+      "risk": 52,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.333,
+      "risk": 51,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.417,
+      "risk": 42,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.5,
+      "risk": 46,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.583,
+      "risk": 48,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.667,
+      "risk": 49,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.75,
+      "risk": 53,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.833,
+      "risk": 57,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 10.917,
+      "risk": 63,
+      "active_tracks": 16,
+      "high_pairs": 1
+    },
+    {
+      "timestamp": 11.0,
+      "risk": 66,
+      "active_tracks": 16,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 11.083,
+      "risk": 68,
+      "active_tracks": 16,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 11.167,
+      "risk": 68,
+      "active_tracks": 16,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 11.25,
+      "risk": 72,
+      "active_tracks": 18,
+      "high_pairs": 4
+    },
+    {
+      "timestamp": 11.333,
+      "risk": 71,
+      "active_tracks": 18,
+      "high_pairs": 3
+    },
+    {
+      "timestamp": 11.417,
+      "risk": 68,
+      "active_tracks": 17,
+      "high_pairs": 3
+    },
+    {
+      "timestamp": 11.5,
+      "risk": 71,
+      "active_tracks": 17,
+      "high_pairs": 3
+    },
+    {
+      "timestamp": 11.583,
+      "risk": 70,
+      "active_tracks": 18,
+      "high_pairs": 5
+    },
+    {
+      "timestamp": 11.667,
+      "risk": 69,
+      "active_tracks": 19,
+      "high_pairs": 5
+    },
+    {
+      "timestamp": 11.75,
+      "risk": 65,
+      "active_tracks": 19,
+      "high_pairs": 4
+    },
+    {
+      "timestamp": 11.833,
+      "risk": 65,
+      "active_tracks": 20,
+      "high_pairs": 3
+    },
+    {
+      "timestamp": 11.917,
+      "risk": 66,
+      "active_tracks": 19,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 12.0,
+      "risk": 57,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 12.083,
+      "risk": 60,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 12.167,
+      "risk": 65,
+      "active_tracks": 18,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 12.25,
+      "risk": 66,
+      "active_tracks": 17,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 12.333,
+      "risk": 60,
+      "active_tracks": 18,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 12.417,
+      "risk": 25,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 12.5,
+      "risk": 28,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 12.583,
+      "risk": 28,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 12.667,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 12.75,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 12.833,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 12.917,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.0,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.083,
+      "risk": 43,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.167,
+      "risk": 36,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.25,
+      "risk": 38,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.333,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.417,
+      "risk": 45,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.5,
+      "risk": 43,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.583,
+      "risk": 41,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.667,
+      "risk": 38,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.75,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.833,
+      "risk": 0,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 13.917,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.0,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.083,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.167,
+      "risk": 0,
+      "active_tracks": 14,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.25,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.333,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.417,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.5,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.583,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.667,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.75,
+      "risk": 0,
+      "active_tracks": 15,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.833,
+      "risk": 0,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 14.917,
+      "risk": 0,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 15.0,
+      "risk": 0,
+      "active_tracks": 20,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 15.083,
+      "risk": 0,
+      "active_tracks": 20,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 15.167,
+      "risk": 0,
+      "active_tracks": 20,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 15.25,
+      "risk": 0,
+      "active_tracks": 22,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 15.333,
+      "risk": 0,
+      "active_tracks": 21,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 15.417,
+      "risk": 64,
+      "active_tracks": 20,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 15.5,
+      "risk": 61,
+      "active_tracks": 17,
+      "high_pairs": 2
+    },
+    {
+      "timestamp": 15.583,
+      "risk": 57,
+      "active_tracks": 16,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 15.667,
+      "risk": 57,
+      "active_tracks": 17,
+      "high_pairs": 0
+    },
+    {
+      "timestamp": 15.75,
+      "risk": 52,
+      "active_tracks": 18,
+      "high_pairs": 0
+    }
+  ],
+  "truncated": false,
+  "pipeline_version": "1.0",
+  "risk_definition": "Live clip index = 90th percentile of frame maximum pair risk; peak and last-frame scores shown separately.",
+  "geography": "Unverified camera location; not linked to NYC history",
+  "evidence": "REAL VIDEO \u2022 Algorithmic, unvalidated image-space conflict indicators"
+}

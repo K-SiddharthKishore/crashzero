@@ -1,0 +1,20 @@
+{
+  "target": "P(any injury or fatality | reported crash, selected context)",
+  "training_period": "2024-01-01 to 2024-09-30",
+  "test_period": "2024-10-01 to 2024-12-31",
+  "train_rows": 68546,
+  "test_rows": 22770,
+  "roc_auc": 0.6028,
+  "brier": 0.2356,
+  "baseline_brier": 0.2482,
+  "training_injury_rate": 0.436,
+  "test_injury_rate": 0.4542,
+  "limitations": "Not a crash-occurrence forecast. No non-crash controls, traffic exposure, weather or live conditions. Temporal holdout only; no Bengaluru validation. Probability estimates are not independently calibrated.",
+  "features": [
+    "borough",
+    "hour",
+    "weekday",
+    "vehicle"
+  ],
+  "random_seed": 42
+}
