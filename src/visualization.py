@@ -11,7 +11,7 @@ def draw(frame,tracks,interactions,t,near_count):
         cv2.rectangle(frame,p1,p2,color,2)
         label=f'{tr.cls.upper()} #{tr.id}'
         cv2.putText(frame,label,(p1[0],max(74,p1[1]-5)),cv2.FONT_HERSHEY_SIMPLEX,.42,color,1,cv2.LINE_AA)
-        pts=np.array([[int(x),int(y)] for _,x,y in tr.history],np.int32)
+        pts=np.array([[int(x),int(y)] for _,x,y in (tr.smoothed_history or tr.history)],np.int32)
         if len(pts)>1: cv2.polylines(frame,[pts],False,color,2,cv2.LINE_AA)
         if tr.ready:
             for k in np.arange(0,HORIZON,.20):

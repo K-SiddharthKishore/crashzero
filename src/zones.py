@@ -15,3 +15,15 @@ def conflict_zones(events,cell_size=120):
             'main_interaction':types.most_common(1)[0][0], 'events':rows,
             'trend':'Insufficient comparable observation windows'})
     return result
+
+def draw_zone_labels(image,events,cell_size=120):
+    import cv2
+    if image is None: return image
+    result=image.copy();h,w=result.shape[:2]
+    for zone in conflict_zones(events,cell_size):
+        x,y=(v*cell_size for v in zone['cell'])
+        if not 0<=x<w or not 0<=y<h:continue
+        color=(90,150,240) if zone['risk']=='HIGH' else (120,210,230)
+        cv2.rectangle(result,(x,y),(min(x+cell_size,w-1),min(y+cell_size,h-1)),color,1)
+        cv2.putText(result,zone['zone'],(x+5,max(16,y+18)),cv2.FONT_HERSHEY_SIMPLEX,.45,color,1,cv2.LINE_AA)
+    return result

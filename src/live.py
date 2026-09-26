@@ -78,13 +78,18 @@ class AnalysisWorker:
                     self.stop_event.wait(max(0,t-(time.monotonic()-start)))
             manager.flush(t); verifier.flush(t)
             if processed==0: raise ValueError('No readable frames. Choose another video or check camera access.')
-            self._publish(events=copy.deepcopy(manager.events),results=list(verifier.results),candidates=[])
-        except Exception:
+            self._publish(events=copy.deepcopy(manager.events),results=list(verifier.results),candidates=[],conflicts=0,
+                near_misses=sum(e['status']=='prototype near miss' for e in manager.events))
+        except Exception as exc:
+            self._publish(error_code=type(exc).__name__)
             # Never display exception strings: stream backends may include credential-bearing URLs.
             self._publish(status='ERROR',message='Analysis could not continue. Check the video, local model, device permissions or stream connection. See README troubleshooting.')
         finally:
             self.source.close()
-            if evidence: evidence.close()
+            if evidence:
+                try: evidence.close()
+                except Exception:
+                    self._publish(status='ERROR',message='Evidence could not be finalized. Check free disk space; saved incident records remain available.')
             if first is not None:
                 self.out.mkdir(parents=True,exist_ok=True)
                 cv2.imwrite(str(self.out/'heatmap.jpg'),heatmap(first,manager.events))

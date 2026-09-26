@@ -72,7 +72,7 @@ class CrashVerifier:
         paired_ids = {i for ids,_,_ in proposals for i in ids}
         for i,s in features.items():
             # A normal stop or a legal turn alone cannot trigger a single-vehicle candidate.
-            if i not in paired_ids and t-s['decel_at'] <= .7 and t-s['turn_at'] <= 1.0:
+            if eligible[i].cls!='person' and i not in paired_ids and t-s['decel_at'] <= .7 and t-s['turn_at'] <= 1.0:
                 tr = eligible[i]
                 proposals.append(((i,), {'x':float(tr.position[0]),'y':float(tr.position[1])}, True))
         for ids,pair,single in proposals:
