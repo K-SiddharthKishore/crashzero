@@ -1,5 +1,6 @@
 from config.settings import MODEL, ROAD_CLASSES, ROOT
 import os
+from config.v2 import SAFETY
 (ROOT/".cache/ultralytics").mkdir(parents=True,exist_ok=True)
 os.environ.setdefault("YOLO_CONFIG_DIR",str(ROOT/".cache/ultralytics"))
 
@@ -12,8 +13,8 @@ class RoadDetector:
         torch.set_num_threads(4)
         self.model=YOLO(str(MODEL)); self.device=device; self.image_size=image_size
     def track(self,frame):
-        result=self.model.track(frame,persist=True,tracker='bytetrack.yaml',classes=ROAD_CLASSES,
-            conf=.20,iou=.5,imgsz=self.image_size,device=self.device,verbose=False)[0]
+        result=self.model.track(frame,persist=True,tracker=str(ROOT/'config/bytetrack-v2.yaml'),classes=ROAD_CLASSES,
+            conf=SAFETY.detection_confidence,iou=.5,imgsz=self.image_size,device=self.device,verbose=False)[0]
         boxes=result.boxes
         if boxes is None or boxes.id is None: return []
         return [{'id':int(tid),'class':result.names[int(cls)],'box':box.tolist(),'confidence':float(conf)}

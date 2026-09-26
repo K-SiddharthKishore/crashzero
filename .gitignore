@@ -12,3 +12,7 @@ data/demo/*original*
 outputs/sessions/
 outputs/*.sqlite*
 outputs/*.log
+outputs/incidents/
+outputs/live/
+config/cameras.local.json
+.claude/

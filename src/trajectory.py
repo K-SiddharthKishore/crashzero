@@ -11,7 +11,7 @@ class Track:
     box: list
     confidence: float
     last_seen: float
-    history: deque = field(default_factory=lambda: deque(maxlen=40))
+    history: deque = field(default_factory=lambda: deque(maxlen=120))
     velocity: np.ndarray = field(default_factory=lambda: np.zeros(2))
     position: np.ndarray = field(default_factory=lambda: np.zeros(2))
     stability: float = 0.
@@ -34,6 +34,17 @@ class TrajectoryStore:
             if tr is None or timestamp - tr.last_seen > MAX_TRACK_GAP:
                 tr = Track(tid, d['class'], d['box'], d['confidence'], timestamp)
                 self.tracks[tid] = tr
+            # Reject duplicate timestamps and reset a trajectory after an implausible
+            # detector jump; never reinterpret an ID jump as vehicle acceleration.
+            if tr.history and timestamp <= tr.last_seen:
+                continue
+            if tr.history:
+                previous = np.array(tr.history[-1][1:])
+                current = np.array([(d['box'][0]+d['box'][2])/2,d['box'][3]])
+                dt = timestamp-tr.last_seen
+                allowed = max(80., float(np.linalg.norm(tr.velocity))*dt*3 + tr.radius*3)
+                if np.linalg.norm(current-previous)>allowed:
+                    tr.history.clear(); tr.ready=False; tr.velocity=np.zeros(2)
             tr.box, tr.confidence, tr.last_seen = d['box'], d['confidence'], timestamp
             x1,y1,x2,y2 = tr.box
             # Bottom-center works better for ground-plane actors in oblique views.
