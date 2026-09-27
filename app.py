@@ -3,10 +3,13 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import uuid
 import streamlit as st
 from config.settings import ROOT, category
 from src.incidents.manager import IncidentStore
 from src.zones import conflict_zones
+
+HOSTED_V2 = os.environ.get('CRASHZERO_V2_HOSTED') == '1'
 
 st.set_page_config(page_title='CrashZero · Predict Risk Before Impact',page_icon='◉',layout='wide')
 st.markdown('''<style>
@@ -20,6 +23,15 @@ h1 {font-size:1.7rem !important;letter-spacing:.025em;}
 [data-testid="stImage"] img {border-radius:8px;}
 [data-testid="stExpander"] {border-color:#2b3033;}
 </style>''',unsafe_allow_html=True)
+if HOSTED_V2:
+    if 'cloud_session_id' not in st.session_state:
+        st.session_state.cloud_session_id = uuid.uuid4().hex
+    storage_root = ROOT/'outputs/sessions/cloud'/st.session_state.cloud_session_id
+    storage_root.mkdir(parents=True, exist_ok=True)
+    st.caption('Hosted V2 · CPU analysis · uploads and demos · session evidence is temporary; save clips before leaving.')
+else:
+    storage_root = ROOT/'outputs'
+
 brand,status=st.columns([6,1])
 with brand:
     st.title('CRASHZERO')
@@ -30,7 +42,7 @@ snapshot=worker.get() if worker else None
 def system_status():
     current=st.session_state.get('worker')
     state=current.get()['status'] if current else None
-    st.caption('● AI ONLINE' if state=='MONITORING' else '○ AI READY' if (ROOT/'models/yolo11n.pt').exists() else '○ MODEL MISSING')
+    st.caption('● AI ONLINE' if state=='MONITORING' else '○ AI READY' if (ROOT/'models/yolo11n.pt').exists() else '○ MODEL ON FIRST USE' if HOSTED_V2 else '○ MODEL MISSING')
     if current and state in ('COMPLETED','STOPPED','ERROR','DISCONNECTED') and not current.thread.is_alive():
         token=str(current.out)
         if st.session_state.get('completed_worker')!=token:
@@ -44,7 +56,7 @@ with st.expander('⚙ Camera & system'):
     camera_id=a.text_input('Camera ID',value=os.environ.get('CRASHZERO_CAMERA_ID','CAM-01'))
     camera_name=b.text_input('Camera name',value=os.environ.get('CRASHZERO_CAMERA_NAME','Local camera'))
     location=c.text_input('Registered location',value=os.environ.get('CRASHZERO_CAMERA_LOCATION','LOCATION NOT CONFIGURED'))
-    device=st.selectbox('Inference device',['cpu','mps'],help='CPU is the verified fallback. MPS support depends on the installed PyTorch build.')
+    device=st.selectbox('Inference device',(['cpu'] if HOSTED_V2 else ['cpu','mps']),help='CPU is the verified fallback. MPS support depends on the installed PyTorch build.')
     debug=st.checkbox('Show system details')
     st.caption('Image-space estimates • no physical speed or distance claim • alerts are simulated locally.')
     if debug:
@@ -87,7 +99,7 @@ def monitor():
     if s['status'] in ('COMPLETED','STOPPED'): st.caption('Analysis complete. Review Conflict Zones or Incidents; select Start analysis to replay.')
 
 if page=='Live Analysis':
-    mode=st.segmented_control('SOURCE',['LIVE CAMERA','UPLOAD VIDEO','DEMO'],default='DEMO')
+    mode=st.segmented_control('SOURCE',(['UPLOAD VIDEO','DEMO'] if HOSTED_V2 else ['LIVE CAMERA','UPLOAD VIDEO','DEMO']),default='DEMO')
     source=None; fixture=None; source_kind='video'
     if mode=='LIVE CAMERA':
         camera_type=st.selectbox('Camera source',['Device webcam','IP / CCTV stream'])
@@ -102,7 +114,7 @@ if page=='Live Analysis':
     elif mode=='UPLOAD VIDEO':
         uploaded=st.file_uploader('Traffic video',type=['mp4','mov','avi','mkv'])
         if uploaded:
-            content=uploaded.getvalue(); folder=ROOT/'outputs/sessions/uploads';folder.mkdir(parents=True,exist_ok=True)
+            content=uploaded.getvalue(); folder=storage_root/'sessions/uploads';folder.mkdir(parents=True,exist_ok=True)
             path=folder/(hashlib.sha256(content).hexdigest()[:20]+Path(uploaded.name).suffix.lower())
             if not path.exists(): path.write_bytes(content)
             source=('file',path)
@@ -128,7 +140,9 @@ if page=='Live Analysis':
             from src.video.simulation import FixtureDetector
             detector=FixtureDetector(fixture)
         camera=Camera(camera_id,camera_name,location) if mode=='LIVE CAMERA' else Camera('DEMO' if mode=='DEMO' else 'UPLOAD',selected if mode=='DEMO' else 'Uploaded video')
-        st.session_state.worker=AnalysisWorker(input_source,camera,device,detector=detector,source_kind=source_kind).start()
+        st.session_state.worker=AnalysisWorker(input_source,camera,device,detector=detector,source_kind=source_kind,
+            store=IncidentStore(storage_root/'incidents') if HOSTED_V2 else None,
+            output_dir=storage_root/'live'/uuid.uuid4().hex[:12] if HOSTED_V2 else None).start()
         st.rerun()
     if stop.button('Stop analysis',disabled=not running): worker.stop();st.rerun()
     if worker: monitor()
@@ -147,7 +161,7 @@ elif page=='Conflict Zones':
     sessions={}
     if snapshot and worker:
         sessions['Current analysis']={'events':snapshot.get('events',[]),'image':snapshot.get('heatmap'),'kind':worker.source_kind}
-    for p in sorted((ROOT/'outputs/live').glob('*/events.json'),key=lambda p:p.stat().st_mtime,reverse=True)[:20]:
+    for p in sorted((storage_root/'live').glob('*/events.json'),key=lambda p:p.stat().st_mtime,reverse=True)[:20]:
         data=json.loads(p.read_text()); sessions[f"{data['camera']['name']} · {p.parent.name}"]={'events':data['events'],'image':str(p.parent/'heatmap.jpg'),'kind':data['source_kind']}
     cached=ROOT/'outputs/demo/analytics.json'
     if cached.exists(): sessions['V1 traffic demo · saved analysis']={'events':json.loads(cached.read_text())['events'],'image':str(cached.parent/'heatmap.jpg'),'kind':'Real traffic · saved V1 analysis'}
@@ -170,7 +184,7 @@ elif page=='Conflict Zones':
 else:
     st.subheader('Incidents & evidence')
     st.caption('Likely events from an unvalidated temporal heuristic. Every dispatch shown here is simulated.')
-    records=IncidentStore().list()
+    records=(IncidentStore(storage_root/'incidents') if HOSTED_V2 else IncidentStore()).list()
     if not records: st.info('No likely accidents recorded. Normal traffic and uncertain candidates do not create dispatch records.')
     for record_index,incident in enumerate(records):
         with st.expander(f"{incident['event_type']} · {incident['incident_id']} · {incident['timestamp']:.1f}s · {incident['camera_id']}",expanded=record_index==0):

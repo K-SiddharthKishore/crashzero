@@ -106,3 +106,5 @@ Checkpoint: `d8354ba` (`checkpoint: CrashZero V1 before V2 upgrade`). V2 branch:
 See [HACKATHON_DEMO.md](HACKATHON_DEMO.md) for the presentation sequence, [TECHNICAL_NOTES.md](TECHNICAL_NOTES.md) for exact algorithms, and [LIMITATIONS.md](LIMITATIONS.md) for honest scope. No real-world collision accuracy percentage is claimed. This is not a validated emergency detection system.
 
 Detailed measured results and remaining validation gaps: [VALIDATION.md](VALIDATION.md). The existing hosted entry point `cloud/app.py` remains a read-only V1 demo via `app_v1.py`; V2 camera/evidence workflows run locally.
+
+For **V2 Community Cloud deployment**, use `cloud/v2/app.py` (Python 3.12), not the legacy `cloud/app.py`. This hosted mode supports uploads/demos, CPU inference, first-use model download and separate temporary storage for each browser session. See [cloud/v2/README.md](cloud/v2/README.md). Physical device cameras remain local-only; actual cloud build/performance still require deployment validation.

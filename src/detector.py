@@ -8,6 +8,9 @@ class RoadDetector:
     def __init__(self,device='cpu',image_size=640,tracker=None,confidence=None):
         import torch
         from ultralytics import YOLO
+        if not MODEL.exists() and os.environ.get('CRASHZERO_V2_HOSTED') == '1':
+            from src.model_assets import ensure_model
+            ensure_model()
         if not MODEL.exists():
             raise FileNotFoundError('YOLO weights missing. Run .venv/bin/python scripts/fetch_model.py once online.')
         torch.set_num_threads(4)
