@@ -19,6 +19,9 @@ def test_full_synthetic_collision_evidence(tmp_path,monkeypatch):
     assert worker.get()['status']=='COMPLETED',worker.get().get('message')
     records=store.list(); assert len(records)==1
     r=records[0]
+    assert r['analysis_id']==worker.analysis_id
+    assert r['source_id']==worker.source_id
+    assert r['source_name']=='collision.mp4'
     assert r['alert_status']=='DEMO ALERT CREATED'
     assert r['source_kind']=='SYNTHETIC TEST'
     assert r['observed_at'] is None  # file offsets must not pretend to be capture wall clock
@@ -31,6 +34,38 @@ def test_full_synthetic_collision_evidence(tmp_path,monkeypatch):
     import src.incidents.manager as module
     monkeypatch.setattr(module,'IncidentStore',lambda:store)
     app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=30).run()
+    demo=next(s for s in app.selectbox if s.label=='Offline scenario')
+    demo.set_value('Collision · SYNTHETIC TEST').run()
+    app.session_state['worker']=worker
+    app.session_state['analysis_by_source']={worker.source_id:worker.analysis_id}
+    app.radio[0].set_value('Incidents').run()
+    assert not app.exception
+    assert any('LIKELY COLLISION' in e.label for e in app.expander)
+    app.radio[0].set_value('Live Analysis').run()
+    assert next(s for s in app.selectbox if s.label=='Offline scenario').value=='Collision · SYNTHETIC TEST'
+    next(s for s in app.selectbox if s.label=='Offline scenario').set_value('Normal · SYNTHETIC TEST').run()
+    assert not app.exception
+    assert not any('LIKELY COLLISION' in e.value for e in app.error)
+    app.radio[0].set_value('Incidents').run()
+    assert not any('LIKELY COLLISION' in e.label for e in app.expander)
+    assert any('Start analysis' in e.value for e in app.info)
+    # Finish a normal run in the same store: the collision must remain hidden.
+    normal_path=ROOT/'data/simulations/normal.mp4'
+    normal=AnalysisWorker(VideoFileSource(normal_path),Camera(),detector=FixtureDetector(normal_path.with_suffix('.json')),
+        store=store,realtime=False,output_dir=tmp_path/'normal').start()
+    normal.thread.join(30)
+    assert normal.get()['status']=='COMPLETED'
+    app.session_state['worker']=normal
+    app.session_state['analysis_by_source']={worker.source_id:worker.analysis_id,normal.source_id:normal.analysis_id}
+    app.run()
+    assert not app.exception
+    assert any('No likely accidents recorded for this analysis' in e.value for e in app.info)
+    assert not any('LIKELY COLLISION' in e.label for e in app.expander)
+    # History remains available explicitly, and changing back restores the right result.
+    app.segmented_control[0].set_value('All saved incidents').run()
+    assert any('LIKELY COLLISION' in e.label for e in app.expander)
+    app.radio[0].set_value('Live Analysis').run()
+    next(s for s in app.selectbox if s.label=='Offline scenario').set_value('Collision · SYNTHETIC TEST').run()
     app.radio[0].set_value('Incidents').run()
     assert not app.exception
     assert any('LIKELY COLLISION' in e.label for e in app.expander)

@@ -8,6 +8,7 @@ import streamlit as st
 from config.settings import ROOT, category
 from src.incidents.manager import IncidentStore
 from src.zones import conflict_zones
+from src.analysis_context import file_selection, camera_selection
 
 HOSTED_V2 = os.environ.get('CRASHZERO_V2_HOSTED') == '1'
 
@@ -88,7 +89,7 @@ def render_status(s):
 @st.fragment(run_every=.5)
 def monitor():
     current=st.session_state.get('worker')
-    if not current: return
+    if not current or getattr(current,'source_id',None)!=(st.session_state.get('selected_source') or {}).get('id'): return
     s=current.get()
     left,right=st.columns([4.6,1])
     with left:
@@ -99,35 +100,61 @@ def monitor():
     if s['status'] in ('COMPLETED','STOPPED'): st.caption('Analysis complete. Review Conflict Zones or Incidents; select Start analysis to replay.')
 
 if page=='Live Analysis':
-    mode=st.segmented_control('SOURCE',(['UPLOAD VIDEO','DEMO'] if HOSTED_V2 else ['LIVE CAMERA','UPLOAD VIDEO','DEMO']),default='DEMO')
+    # Durable values survive Streamlit cleaning up widgets on other screens.
+    if '_source_mode' not in st.session_state:
+        st.session_state['_source_mode']=st.session_state.get('source_mode','DEMO')
+    mode=st.segmented_control('SOURCE',(['UPLOAD VIDEO','DEMO'] if HOSTED_V2 else ['LIVE CAMERA','UPLOAD VIDEO','DEMO']),key='_source_mode')
+    st.session_state.source_mode=mode
+    selection=None
     source=None; fixture=None; source_kind='video'
     if mode=='LIVE CAMERA':
         camera_type=st.selectbox('Camera source',['Device webcam','IP / CCTV stream'])
         if camera_type=='Device webcam':
             index=st.number_input('Device index',0,10,0)
             source=('webcam',index)
+            selection=camera_selection(camera_id,'webcam',index)
         else:
             st.caption('Set CRASHZERO_STREAM_URL in the launching terminal. Credentials stay outside the UI and saved metadata.')
-            if os.environ.get('CRASHZERO_STREAM_URL'): source=('stream',None)
+            if os.environ.get('CRASHZERO_STREAM_URL'):
+                source=('stream',None)
+                selection=camera_selection(camera_id,'stream')
             else: st.info('No IP camera configured. Set CRASHZERO_STREAM_URL and restart the app.')
         source_kind='live camera'
     elif mode=='UPLOAD VIDEO':
-        uploaded=st.file_uploader('Traffic video',type=['mp4','mov','avi','mkv'])
+        def forget_removed_upload():
+            if st.session_state.get('_video_upload') is None:
+                st.session_state.pop('saved_upload',None)
+        uploaded=st.file_uploader('Traffic video',type=['mp4','mov','avi','mkv'],key='_video_upload',on_change=forget_removed_upload)
         if uploaded:
             content=uploaded.getvalue(); folder=storage_root/'sessions/uploads';folder.mkdir(parents=True,exist_ok=True)
             path=folder/(hashlib.sha256(content).hexdigest()[:20]+Path(uploaded.name).suffix.lower())
             if not path.exists(): path.write_bytes(content)
-            source=('file',path)
+            st.session_state.saved_upload={'path':str(path),'name':uploaded.name}
+        saved_upload=st.session_state.get('saved_upload')
+        if saved_upload:
+            source=('file',Path(saved_upload['path']))
+            selection=file_selection(saved_upload['path'],saved_upload['name'])
+            if uploaded is None:
+                st.caption('Selected video: '+saved_upload['name'])
+                if st.button('Clear selected video'):
+                    st.session_state.pop('saved_upload',None)
+                    st.rerun()
     else:
         choices={p.stem.replace('_',' ').title():p for p in sorted((ROOT/'data/demo').glob('*.mp4'))}
         simulations={p.stem.replace('_',' ').title()+' · SYNTHETIC TEST':p for p in sorted((ROOT/'data/simulations').glob('*.mp4'))}
         choices.update(simulations)
         if choices:
-            selected=st.selectbox('Offline scenario',list(choices)); path=choices[selected]; source=('file',path)
+            if '_demo_choice' not in st.session_state:
+                st.session_state['_demo_choice']=st.session_state.get('demo_choice',next(iter(choices)))
+            selected=st.selectbox('Offline scenario',list(choices),key='_demo_choice')
+            st.session_state.demo_choice=selected
+            path=choices[selected]; source=('file',path)
+            selection=file_selection(path,selected)
             if 'SYNTHETIC TEST' in selected:
                 fixture=path.with_suffix('.json'); source_kind='SYNTHETIC trajectory fixture — detector bypassed'
                 st.warning('Synthetic engineering scenario: scripted detections test verification and evidence capture. This is not real accident footage or detector accuracy evidence.')
         else: st.info('No local demo video found. Upload a video or fetch the documented demo assets.')
+    st.session_state.selected_source=selection
     start,stop,_=st.columns([1,1,5])
     running=bool(worker and worker.thread and worker.thread.is_alive())
     if start.button('Start analysis',type='primary',disabled=not source or running):
@@ -142,11 +169,14 @@ if page=='Live Analysis':
         camera=Camera(camera_id,camera_name,location) if mode=='LIVE CAMERA' else Camera('DEMO' if mode=='DEMO' else 'UPLOAD',selected if mode=='DEMO' else 'Uploaded video')
         st.session_state.worker=AnalysisWorker(input_source,camera,device,detector=detector,source_kind=source_kind,
             store=IncidentStore(storage_root/'incidents') if HOSTED_V2 else None,
-            output_dir=storage_root/'live'/uuid.uuid4().hex[:12] if HOSTED_V2 else None).start()
+            output_dir=storage_root/'live'/uuid.uuid4().hex[:12] if HOSTED_V2 else None,
+            source_id=selection['id'],source_name=selection['name']).start()
+        st.session_state.setdefault('analysis_by_source',{})[selection['id']]=st.session_state.worker.analysis_id
         st.rerun()
     if stop.button('Stop analysis',disabled=not running): worker.stop();st.rerun()
-    if worker: monitor()
+    if worker and selection and getattr(worker,'source_id',None)==selection['id']: monitor()
     else:
+        if running: st.info(f"{getattr(worker,'source_name',worker.camera.name)} is still being analyzed. Stop it before starting the selected video.")
         left,right=st.columns([4.6,1])
         with left:
             if source and source[0]=='file': st.video(str(source[1]))
@@ -182,24 +212,41 @@ elif page=='Conflict Zones':
                 st.dataframe([{k:e.get(k) for k in ['timestamp','classes','peak_risk','status','x','y']} for e in zone['events']],hide_index=True,width='stretch')
     else: st.info('Analyze a video to accumulate conflict locations.')
 else:
-    st.subheader('Incidents & evidence')
-    st.caption('Likely events from an unvalidated temporal heuristic. Every dispatch shown here is simulated.')
-    records=(IncidentStore(storage_root/'incidents') if HOSTED_V2 else IncidentStore()).list()
-    if not records: st.info('No likely accidents recorded. Normal traffic and uncertain candidates do not create dispatch records.')
-    for record_index,incident in enumerate(records):
-        with st.expander(f"{incident['event_type']} · {incident['incident_id']} · {incident['timestamp']:.1f}s · {incident['camera_id']}",expanded=record_index==0):
-            st.caption(incident['source_kind'])
-            cols=st.columns(3)
-            for col,label,key in zip(cols,['BEFORE','EVENT','AFTER'],['before_path','screenshot_path','after_path']):
-                with col:
-                    st.caption(label)
-                    if incident.get(key) and Path(incident[key]).exists():st.image(incident[key],width='stretch')
-                    else: st.caption('Capturing…')
-            st.write(' · '.join(f"{kind.title()} #{tid}" for kind,tid in zip(incident['road_users'],incident['track_ids'])))
-            st.write(f"{incident.get('camera_name',incident.get('name','Unknown camera'))} · {incident['location']}")
-            st.caption(f"Source offset {incident['timestamp']:.2f}s · Recorded {incident['created_at']} · Heuristic evidence {incident['evidence_score']:.0%} (not probability)")
-            for key,value in incident['evidence_signals'].items():st.caption(('✓ ' if value else '— ')+key.replace('_',' ').title())
-            st.info(incident['alert_status']+' · SIMULATED / NO EXTERNAL CONTACT')
-            st.caption(incident['evidence_status'])
-            if incident.get('video_clip_path') and Path(incident['video_clip_path']).exists():st.video(incident['video_clip_path'])
-            if incident.get('pre_event_truncated') or incident.get('post_event_truncated'):st.caption('Partial evidence window: source started or ended close to the event.')
+    @st.fragment(run_every=1.)
+    def incident_timeline():
+        st.subheader('Incidents & evidence')
+        st.caption('Likely events from an unvalidated temporal heuristic. Every dispatch shown here is simulated.')
+        selected_source=st.session_state.get('selected_source')
+        scope=st.segmented_control('Incident scope',['Selected video','All saved incidents'],default='Selected video',
+            key='incident_scope_'+(selected_source['id'] if selected_source else 'none'))
+        store=IncidentStore(storage_root/'incidents') if HOSTED_V2 else IncidentStore()
+        if scope=='All saved incidents':
+            records=store.list()
+            st.caption('All saved analyses, including older records without video information.')
+        else:
+            analysis_id=st.session_state.get('analysis_by_source',{}).get(selected_source['id']) if selected_source else None
+            records=store.list(analysis_id=analysis_id) if analysis_id else []
+            if selected_source: st.caption('Selected video: '+selected_source['name'])
+            if not analysis_id:
+                st.info('Start analysis for the selected video to see its incidents.' if selected_source else 'Select a video in Live Analysis first.')
+                return
+        if not records: st.info('No likely accidents recorded for this analysis.' if scope=='Selected video' else 'No saved incidents.')
+        for record_index,incident in enumerate(records):
+            with st.expander(f"{incident['event_type']} · {incident['incident_id']} · {incident['timestamp']:.1f}s · {incident['camera_id']}",expanded=record_index==0):
+                st.caption(incident.get('source_name') or 'Older recording · source not recorded')
+                st.caption(incident['source_kind'])
+                cols=st.columns(3)
+                for col,label,key in zip(cols,['BEFORE','EVENT','AFTER'],['before_path','screenshot_path','after_path']):
+                    with col:
+                        st.caption(label)
+                        if incident.get(key) and Path(incident[key]).exists():st.image(incident[key],width='stretch')
+                        else: st.caption('Capturing…')
+                st.write(' · '.join(f"{kind.title()} #{tid}" for kind,tid in zip(incident['road_users'],incident['track_ids'])))
+                st.write(f"{incident.get('camera_name',incident.get('name','Unknown camera'))} · {incident['location']}")
+                st.caption(f"Source offset {incident['timestamp']:.2f}s · Recorded {incident['created_at']} · Heuristic evidence {incident['evidence_score']:.0%} (not probability)")
+                for key,value in incident['evidence_signals'].items():st.caption(('✓ ' if value else '— ')+key.replace('_',' ').title())
+                st.info(incident['alert_status']+' · SIMULATED / NO EXTERNAL CONTACT')
+                st.caption(incident['evidence_status'])
+                if incident.get('video_clip_path') and Path(incident['video_clip_path']).exists():st.video(incident['video_clip_path'])
+                if incident.get('pre_event_truncated') or incident.get('post_event_truncated'):st.caption('Partial evidence window: source started or ended close to the event.')
+    incident_timeline()

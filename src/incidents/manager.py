@@ -22,17 +22,29 @@ class IncidentStore:
         self.root = Path(root or ROOT/'outputs/incidents'); self.root.mkdir(parents=True,exist_ok=True)
         self.db = self.root/'incidents.sqlite'
         with sqlite3.connect(self.db) as db:
+            db.execute('BEGIN IMMEDIATE')
             db.execute('CREATE TABLE IF NOT EXISTS incidents (id TEXT PRIMARY KEY, created_at TEXT, payload TEXT)')
+            columns={row[1] for row in db.execute('PRAGMA table_info(incidents)')}
+            if 'analysis_id' not in columns:
+                db.execute('ALTER TABLE incidents ADD COLUMN analysis_id TEXT')
+            db.execute('CREATE INDEX IF NOT EXISTS incidents_analysis ON incidents(analysis_id,created_at)')
     def save(self, record):
         with sqlite3.connect(self.db) as db:
-            db.execute('INSERT OR REPLACE INTO incidents VALUES (?,?,?)',
-                (record['incident_id'],record['created_at'],json.dumps(record)))
-    def list(self):
+            db.execute('INSERT OR REPLACE INTO incidents (id,created_at,payload,analysis_id) VALUES (?,?,?,?)',
+                (record['incident_id'],record['created_at'],json.dumps(record),record.get('analysis_id')))
+    def list(self, analysis_id=None):
+        query='SELECT payload FROM incidents'
+        args=()
+        if analysis_id is not None:
+            query+=' WHERE analysis_id=?'
+            args=(analysis_id,)
+        query+=' ORDER BY created_at DESC LIMIT 200'
         with sqlite3.connect(self.db) as db:
-            return [json.loads(r[0]) for r in db.execute('SELECT payload FROM incidents ORDER BY created_at DESC LIMIT 200')]
+            return [json.loads(r[0]) for r in db.execute(query,args)]
 
 class EvidenceBuffer:
-    def __init__(self, camera, store=None, config=SAFETY, source_kind='video', started_at=None):
+    def __init__(self, camera, store=None, config=SAFETY, source_kind='video', started_at=None, analysis_id=None, source_id=None, source_name=None):
+        self.analysis_id=analysis_id; self.source_id=source_id; self.source_name=source_name
         self.cfg = config; self.camera = camera; self.store = store or IncidentStore()
         self.frames = deque(); self.pending = []; self.last_t = -1.
         self.source_kind = source_kind; self.started_at = started_at or datetime.now(timezone.utc)
@@ -61,6 +73,7 @@ class EvidenceBuffer:
         now=datetime.now(timezone.utc).isoformat()
         record = {**event, **self.camera.metadata(), 'incident_id':incident_id, 'created_at':now,
             'event_type':event['state'], 'verification_status':event['state'],
+            'analysis_id':self.analysis_id, 'source_id':self.source_id, 'source_name':self.source_name,
             'camera_name':self.camera.name, 'registered_location':self.camera.location,
             'source_kind':self.source_kind, 'time_basis':'source offset in seconds' if self.source_kind!='live camera' else 'capture clock',
             'observed_at':(self.started_at+timedelta(seconds=event['timestamp'])).isoformat() if self.source_kind=='live camera' else None,

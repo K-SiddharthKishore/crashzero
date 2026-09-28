@@ -11,6 +11,7 @@ import cv2
 from config.settings import ROOT, HIGH_RISK
 from config.v2 import SAFETY
 from src.detector import RoadDetector
+from src.analysis_context import file_selection, camera_selection
 from src.trajectory import TrajectoryStore
 from src.conflicts import detect_conflicts
 from src.events import EventManager
@@ -19,14 +20,18 @@ from src.incidents.manager import EvidenceBuffer
 from src.visualization import draw, heatmap
 
 class AnalysisWorker:
-    def __init__(self,source,camera,device='cpu',detector=None,store=None,source_kind='video',realtime=True,output_dir=None):
+    def __init__(self,source,camera,device='cpu',detector=None,store=None,source_kind='video',realtime=True,output_dir=None,source_id=None,source_name=None):
+        selection=camera_selection(camera.camera_id,'live') if source.live else file_selection(source.source,Path(source.source).name)
+        self.analysis_id=uuid.uuid4().hex
+        self.source_id=source_id or selection['id']
+        self.source_name=source_name or (camera.name if source.live else selection['name'])
         self.source=source; self.camera=camera; self.device=device; self.detector=detector
         self.incident_store=store; self.source_kind=source_kind; self.realtime=realtime
         self.stop_event=threading.Event(); self.lock=threading.Lock()
         self.snapshot={'status':'STARTING','frame':None,'events':[],'candidates':[],'results':[],
                        'risk':0,'road_users':0,'conflicts':0,'near_misses':0,'fps':0.,'timestamp':0.}
         self.thread=None; self.last_poll=time.monotonic()
-        self.out=Path(output_dir) if output_dir is not None else ROOT/'outputs/live'/uuid.uuid4().hex[:12]
+        self.out=Path(output_dir) if output_dir is not None else ROOT/'outputs/live'/self.analysis_id[:12]
     def start(self):
         self.thread=threading.Thread(target=self._run,daemon=True,name='CrashZero-analysis'); self.thread.start(); return self
     def stop(self): self.stop_event.set()
@@ -42,7 +47,8 @@ class AnalysisWorker:
             self.source.open()
             detector=self.detector if self.detector is not None else RoadDetector(self.device)
             self.out.mkdir(parents=True,exist_ok=True)
-            evidence=EvidenceBuffer(self.camera,self.incident_store,source_kind=self.source_kind)
+            evidence=EvidenceBuffer(self.camera,self.incident_store,source_kind=self.source_kind,
+                analysis_id=self.analysis_id,source_id=self.source_id,source_name=self.source_name)
             stride=1 if self.source.live else max(1,math.ceil(self.source.fps/12))
             index=0; start=time.monotonic()
             while not self.stop_event.is_set():
@@ -95,7 +101,8 @@ class AnalysisWorker:
                 self.out.mkdir(parents=True,exist_ok=True)
                 cv2.imwrite(str(self.out/'heatmap.jpg'),heatmap(first,manager.events))
                 (self.out/'events.json').write_text(json.dumps({'camera':self.camera.metadata(),
-                    'source_kind':self.source_kind,'events':manager.events},indent=2))
+                    'source_kind':self.source_kind,'analysis_id':self.analysis_id,
+                    'source_id':self.source_id,'source_name':self.source_name,'events':manager.events},indent=2))
                 self._publish(heatmap=str(self.out/'heatmap.jpg'),out=str(self.out))
             if self.snapshot['status'] not in ('ERROR','DISCONNECTED'):
                 self._publish(status='STOPPED' if self.stop_event.is_set() else 'COMPLETED')
