@@ -70,10 +70,9 @@ class WebcamSource(VideoSource):
 
 class StreamSource(VideoSource):
     live = True
-    def __init__(self, url):
-        if not url.startswith(('rtsp://','rtsps://','http://','https://')):
-            raise ValueError('Configure an RTSP or HTTP camera URL in CRASHZERO_STREAM_URL.')
-        super().__init__(url)
+    def __init__(self, url, *, hosted=False):
+        from src.video.stream_config import validate_stream_url
+        super().__init__(validate_stream_url(url,hosted=hosted))
     def open(self):
         # FFmpeg bounded network reads prevent a disconnected stream hanging the worker.
         self.capture = cv2.VideoCapture(self.source, cv2.CAP_FFMPEG,

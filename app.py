@@ -29,7 +29,7 @@ if HOSTED_V2:
         st.session_state.cloud_session_id = uuid.uuid4().hex
     storage_root = ROOT/'outputs/sessions/cloud'/st.session_state.cloud_session_id
     storage_root.mkdir(parents=True, exist_ok=True)
-    st.caption('Hosted V2 · CPU analysis · uploads and demos · session evidence is temporary; save clips before leaving.')
+    st.caption('Hosted V2 · CPU analysis · IP cameras, uploads and demos · session evidence is temporary; save clips before leaving.')
 else:
     storage_root = ROOT/'outputs'
 
@@ -103,22 +103,41 @@ if page=='Live Analysis':
     # Durable values survive Streamlit cleaning up widgets on other screens.
     if '_source_mode' not in st.session_state:
         st.session_state['_source_mode']=st.session_state.get('source_mode','DEMO')
-    mode=st.segmented_control('SOURCE',(['UPLOAD VIDEO','DEMO'] if HOSTED_V2 else ['LIVE CAMERA','UPLOAD VIDEO','DEMO']),key='_source_mode')
+    mode=st.segmented_control('SOURCE',['LIVE CAMERA','UPLOAD VIDEO','DEMO'],key='_source_mode')
     st.session_state.source_mode=mode
     selection=None
     source=None; fixture=None; source_kind='video'
     if mode=='LIVE CAMERA':
-        camera_type=st.selectbox('Camera source',['Device webcam','IP / CCTV stream'])
+        camera_type=st.selectbox('Camera source',['IP / CCTV stream'] if HOSTED_V2 else ['IP / CCTV stream','Device webcam'])
         if camera_type=='Device webcam':
             index=st.number_input('Device index',0,10,0)
             source=('webcam',index)
             selection=camera_selection(camera_id,'webcam',index)
         else:
-            st.caption('Set CRASHZERO_STREAM_URL in the launching terminal. Credentials stay outside the UI and saved metadata.')
-            if os.environ.get('CRASHZERO_STREAM_URL'):
-                source=('stream',None)
-                selection=camera_selection(camera_id,'stream')
-            else: st.info('No IP camera configured. Set CRASHZERO_STREAM_URL and restart the app.')
+            from src.video.stream_config import validate_stream_url
+            if '_camera_stream_url' not in st.session_state:
+                st.session_state['_camera_stream_url']=st.session_state.get('camera_stream_url','')
+            stream_url=st.text_input('Camera stream URL',type='password',key='_camera_stream_url',
+                placeholder='rtsp://username:password@camera-ip:554/stream-path',
+                help='Use the RTSP video URL from your camera or NVR settings, not its web login page. Encode special characters in the username/password.')
+            st.session_state.camera_stream_url=stream_url
+            if not HOSTED_V2:
+                stream_url=stream_url or os.environ.get('CRASHZERO_STREAM_URL','')
+            st.caption('The address is used only for this session’s connection; it is not included in incident records.')
+            if HOSTED_V2:
+                st.info('Cloud analysis needs a reachable public IP and an RTSP/RTSPS stream. Private Wi-Fi/LAN cameras (192.168.x.x, 10.x.x.x) require CrashZero running on the same network. Your browser’s network is not the cloud server’s network.')
+            else:
+                st.caption('Connect this computer to the camera’s network. RTSP/RTSPS and HTTP video streams are supported. CRASHZERO_STREAM_URL is also supported.')
+            if stream_url:
+                try:
+                    stream_url=validate_stream_url(stream_url,hosted=HOSTED_V2)
+                    source=('stream',stream_url)
+                    endpoint_id=hashlib.sha256(stream_url.encode()).hexdigest()
+                    selection=camera_selection(camera_id,'stream',endpoint_id)
+                except ValueError as exc:
+                    st.warning(str(exc))
+            else:
+                st.info('Enter your camera’s stream URL, then select Start analysis.')
         source_kind='live camera'
     elif mode=='UPLOAD VIDEO':
         def forget_removed_upload():
@@ -161,7 +180,7 @@ if page=='Live Analysis':
         from src.live import AnalysisWorker
         from src.video.source import Camera,VideoFileSource,WebcamSource,StreamSource
         kind,value=source
-        input_source=WebcamSource(value) if kind=='webcam' else StreamSource(os.environ['CRASHZERO_STREAM_URL']) if kind=='stream' else VideoFileSource(value)
+        input_source=WebcamSource(value) if kind=='webcam' else StreamSource(value,hosted=HOSTED_V2) if kind=='stream' else VideoFileSource(value)
         detector=None
         if fixture:
             from src.video.simulation import FixtureDetector
