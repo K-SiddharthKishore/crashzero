@@ -19,3 +19,7 @@ config/cameras.local.json
 outputs/tracking_*.json
 outputs/tracking_*.jpg
 outputs/safety_evaluation.json
+!.env.example
+outputs/calls/
+outputs/evaluation/
+data/evaluation/

@@ -1,0 +1,5 @@
+# Optional local-only real test-call dependencies. Never required by cloud.
+plivo==4.63.0
+fastapi==0.142.2
+uvicorn==0.54.0
+python-dotenv==1.2.3

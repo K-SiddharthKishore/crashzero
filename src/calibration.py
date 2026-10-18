@@ -5,6 +5,13 @@ import numpy as np
 
 class RoadCalibration:
     def __init__(self, config):
+        import hashlib,json
+        self.fingerprint=hashlib.sha256(json.dumps(config,sort_keys=True).encode()).hexdigest()
+        self.fixed_objects=config.get('fixed_objects',[])
+        for obj in self.fixed_objects:
+            box=np.asarray(obj.get('box'),dtype=float)
+            if box.shape!=(4,) or not np.isfinite(box).all() or box[2]<=box[0] or box[3]<=box[1]:
+                raise ValueError('Fixed objects need an observed image bounding box [x1,y1,x2,y2].')
         self.corridors = config.get('corridors', [])
         self.matrix = None
         self.units = 'image pixels'
@@ -39,3 +46,8 @@ class RoadCalibration:
             if cv2.pointPolygonTest(polygon,tuple(map(float,point)),False)>=0:
                 return region['movement']
         return None
+
+    def object_detections(self):
+        # Operator-registered visible static obstacles, not model classifications.
+        return [{'id':-(i+1),'class':'fixed-object','box':list(obj['box']),'confidence':1.}
+                for i,obj in enumerate(self.fixed_objects)]

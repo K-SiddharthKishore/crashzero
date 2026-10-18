@@ -25,6 +25,8 @@ class Track:
     tracking_quality: float = 0.
     road_position: list | None = None
     corridor: str | None = None
+    road_velocity: list | None = None
+    road_radius: float | None = None
     @property
     def radius(self):
         # Conservative image footprint; not metric distance or a calibrated envelope.
@@ -82,6 +84,12 @@ class TrajectoryStore:
             if self.calibration:
                 tr.road_position = self.calibration.project(tr.position)
                 tr.corridor = self.calibration.corridor(tr.position)
+                if tr.road_position is not None:
+                    projected=[(sample[0],self.calibration.project(sample[1:])) for sample in tr.history]
+                    if all(point is not None for _,point in projected) and len(projected)>=3:
+                        tr.road_velocity=estimate([(t,*p) for t,p in projected])[0].tolist()
+                    edge=self.calibration.project(tr.position+np.array([tr.radius,0]))
+                    tr.road_radius=float(np.linalg.norm(np.asarray(edge)-tr.road_position)) if edge is not None else None
             active[tid] = tr
         self.tracks = {k:v for k,v in self.tracks.items() if timestamp-v.last_seen <= 2.}
         return active

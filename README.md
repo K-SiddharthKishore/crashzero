@@ -75,7 +75,9 @@ OpenCV file / webcam / stream
 
 ## Storage and troubleshooting
 
-Incidents and media: `outputs/incidents/`; session zones: `outputs/live/`; legacy analysis: `outputs/demo/` and `outputs/sessions/`. All new captured evidence and local configuration are Git-ignored. No automatic evidence deletion or external upload occurs. Disk usage should be checked before a long capture session.
+Incidents and media: `outputs/incidents/`; session zones: `outputs/live/`; legacy analysis: `outputs/demo/` and `outputs/sessions/`. All new captured evidence and local configuration are Git-ignored. Incident clips and screenshots are stored as bounded SQLite BLOBs in `outputs/incidents/incidents.sqlite`, with temporary/export files held beside that database rather than in a public web directory.
+
+The V3 evidence recorder keeps only a timestamped in-memory ring (10 seconds before an event) and waits for 10 seconds of post-event context. H.264 is preferred, with MP4V fallback. It writes the final clip bytes, annotated event screenshot, timestamps, status, and metadata in one SQLite transaction; a source ending early produces an explicitly partial record. The timeline in the record preserves the original irregular frame timestamps even though browser MP4 playback is sampled at the configured output rate. Retention is configured through `SafetyConfig.incident_retention_days` and `incident_max_records`; the default `-1` retains evidence until an operator sets a policy.
 
 Missing model: run the model fetch script once online. Invalid files, model/tracker failures and camera disconnects become short UI messages. The CPU option is the fallback for device/inference issues. After a disconnected stream, check connectivity and restart analysis. Nothing attempts to guess stream credentials or precise camera location.
 
@@ -112,3 +114,5 @@ Detailed measured results and remaining validation gaps: [VALIDATION.md](VALIDAT
 For **V2 Community Cloud deployment**, use `cloud/v2/app.py` (Python 3.12), not the legacy `cloud/app.py`. This hosted mode supports uploads/demos, CPU inference, first-use model download and separate temporary storage for each browser session. See [cloud/v2/README.md](cloud/v2/README.md). Physical device cameras remain local-only; actual cloud build/performance still require deployment validation.
 
 The Incidents screen defaults to **Selected video** and shows the latest analysis run for that source in the current browser session. Changing the source does not reuse another video's results; select **Start analysis** for a new video. **All saved incidents** retains the full history, including older records created before source/run metadata was added. The selected demo or uploaded file is retained when switching screens, and incident evidence status refreshes while analysis runs.
+
+The Incident History screen filters by recorded date, incident type, and verification status. Finalized records play directly from the database and offer an MP4 download, so replay does not require the original camera or source video. See [V3_ENGINEERING_REPORT.md](V3_ENGINEERING_REPORT.md) for the archive schema, tests, and measured limitations.

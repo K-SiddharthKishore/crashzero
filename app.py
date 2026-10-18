@@ -10,6 +10,13 @@ from src.incidents.manager import IncidentStore
 from src.zones import conflict_zones
 from src.analysis_context import file_selection, camera_selection
 
+if os.environ.get('CRASHZERO_V2_HOSTED') != '1':
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(ROOT/'.env',override=False)
+    except ImportError:
+        pass
+
 HOSTED_V2 = os.environ.get('CRASHZERO_V2_HOSTED') == '1'
 
 st.set_page_config(page_title='CrashZero · Predict Risk Before Impact',page_icon='◉',layout='wide')
@@ -62,7 +69,12 @@ with st.expander('⚙ Camera & system'):
     st.caption('Image-space estimates • no physical speed or distance claim • alerts are simulated locally.')
     if debug:
         st.write('YOLO11n · ByteTrack · temporal heuristic verification · local SQLite incidents')
+        from src.ui_settings import call_settings
+        call_settings(storage_root,HOSTED_V2)
         st.caption('For webcam permission: macOS System Settings → Privacy & Security → Camera → enable the app that launches Python (Terminal or Codex), then restart analysis.')
+
+    from src.ui_settings import calibration_settings
+    calibration=calibration_settings(camera_id,storage_root,HOSTED_V2)
 
 def render_status(s):
     st.caption(s['status'])
@@ -83,6 +95,11 @@ def render_status(s):
         if event['state'].startswith('LIKELY') and recent_likely:
             st.error(event['state']); st.caption('Incident created · demo alert created. Evidence status is available in Incidents.')
         elif s['timestamp']-event.get('verified_at',0)<5: st.info(event['state'])
+    motion=s.get('camera_motion',{})
+    if motion.get('moving'): st.warning('Camera movement detected — accident confirmation withheld.')
+    elif motion and not motion.get('available'): st.caption('Background motion check unavailable; confirmation withheld.')
+    if s.get('results') and debug:
+        st.json(s['results'][-1])
     if s.get('message'): st.warning(s['message'])
     if debug: st.caption(f"{s['fps']:.1f} processed FPS · source {s['timestamp']:.1f}s")
 
@@ -189,7 +206,7 @@ if page=='Live Analysis':
         st.session_state.worker=AnalysisWorker(input_source,camera,device,detector=detector,source_kind=source_kind,
             store=IncidentStore(storage_root/'incidents') if HOSTED_V2 else None,
             output_dir=storage_root/'live'/uuid.uuid4().hex[:12] if HOSTED_V2 else None,
-            source_id=selection['id'],source_name=selection['name']).start()
+            source_id=selection['id'],source_name=selection['name'],calibration=calibration).start()
         st.session_state.setdefault('analysis_by_source',{})[selection['id']]=st.session_state.worker.analysis_id
         st.rerun()
     if stop.button('Stop analysis',disabled=not running): worker.stop();st.rerun()
@@ -234,17 +251,28 @@ else:
     @st.fragment(run_every=1.)
     def incident_timeline():
         st.subheader('Incidents & evidence')
-        st.caption('Likely events from an unvalidated temporal heuristic. Every dispatch shown here is simulated.')
+        st.caption('Likely events from an unvalidated temporal heuristic. Test notifications only; no emergency dispatch.')
         selected_source=st.session_state.get('selected_source')
         scope=st.segmented_control('Incident scope',['Selected video','All saved incidents'],default='Selected video',
             key='incident_scope_'+(selected_source['id'] if selected_source else 'none'))
         store=IncidentStore(storage_root/'incidents') if HOSTED_V2 else IncidentStore()
+        filters=st.columns(3)
+        with filters[0]:
+            incident_types=st.multiselect('Incident type',['LIKELY COLLISION','LIKELY_ACCIDENT','NEAR_MISS','POSSIBLE_ACCIDENT','UNCERTAIN'])
+        with filters[1]:
+            incident_statuses=st.multiselect('Verification status',['LIKELY COLLISION','LIKELY_ACCIDENT','NEAR_MISS','POSSIBLE_ACCIDENT','UNCERTAIN'])
+        with filters[2]:
+            date_range=st.date_input('Recorded date range',value=(),key='incident_dates')
+        start_date=end_date=None
+        if isinstance(date_range,(tuple,list)) and len(date_range)==2:
+            start_date,end_date=date_range
         if scope=='All saved incidents':
-            records=store.list()
+            records=store.list(start_date=start_date,end_date=end_date,event_types=incident_types,statuses=incident_statuses)
             st.caption('All saved analyses, including older records without video information.')
         else:
             analysis_id=st.session_state.get('analysis_by_source',{}).get(selected_source['id']) if selected_source else None
-            records=store.list(analysis_id=analysis_id) if analysis_id else []
+            records=store.list(analysis_id=analysis_id,start_date=start_date,end_date=end_date,
+                               event_types=incident_types,statuses=incident_statuses) if analysis_id else []
             if selected_source: st.caption('Selected video: '+selected_source['name'])
             if not analysis_id:
                 st.info('Start analysis for the selected video to see its incidents.' if selected_source else 'Select a video in Live Analysis first.')
@@ -258,14 +286,30 @@ else:
                 for col,label,key in zip(cols,['BEFORE','EVENT','AFTER'],['before_path','screenshot_path','after_path']):
                     with col:
                         st.caption(label)
-                        if incident.get(key) and Path(incident[key]).exists():st.image(incident[key],width='stretch')
+                        image=store.get_screenshot(incident['incident_id']) if key=='screenshot_path' else None
+                        if image: st.image(image,width='stretch')
+                        elif incident.get(key) and Path(incident[key]).exists():st.image(incident[key],width='stretch')
                         else: st.caption('Capturing…')
                 st.write(' · '.join(f"{kind.title()} #{tid}" for kind,tid in zip(incident['road_users'],incident['track_ids'])))
-                st.write(f"{incident.get('camera_name',incident.get('name','Unknown camera'))} · {incident['location']}")
+                st.write(f"{incident.get('camera_name',incident.get('name','Unknown camera'))} · {incident.get('location',incident.get('registered_location','Location not configured'))}")
                 st.caption(f"Source offset {incident['timestamp']:.2f}s · Recorded {incident['created_at']} · Heuristic evidence {incident['evidence_score']:.0%} (not probability)")
                 for key,value in incident['evidence_signals'].items():st.caption(('✓ ' if value else '— ')+key.replace('_',' ').title())
-                st.info(incident['alert_status']+' · SIMULATED / NO EXTERNAL CONTACT')
+                from src.alerts.service import AlertService
+                ledger=AlertService(storage_root/'incidents/calls' if HOSTED_V2 else None).store
+                eligibility=ledger.eligibility(incident['incident_id'])
+                if eligibility:
+                    st.info('Call eligibility: '+('PASSED' if eligibility['passed'] else 'WITHHELD'))
+                    for reason in eligibility['reasons']: st.caption(reason)
+                for attempt in ledger.list(incident['incident_id']):
+                    st.caption(f"Test call · {attempt['provider']} · {attempt['status']}")
+                if not eligibility: st.caption('Call eligibility pending evidence finalization.')
                 st.caption(incident['evidence_status'])
-                if incident.get('video_clip_path') and Path(incident['video_clip_path']).exists():st.video(incident['video_clip_path'])
+                clip=store.get_clip(incident['incident_id'])
+                if clip:
+                    st.video(clip)
+                    st.download_button('Download incident clip',clip,file_name=f"{incident['incident_id']}.mp4",
+                                       mime='video/mp4',key='download_'+incident['incident_id'])
+                elif incident.get('video_clip_path') and Path(incident['video_clip_path']).exists():
+                    st.video(incident['video_clip_path'])
                 if incident.get('pre_event_truncated') or incident.get('post_event_truncated'):st.caption('Partial evidence window: source started or ended close to the event.')
     incident_timeline()

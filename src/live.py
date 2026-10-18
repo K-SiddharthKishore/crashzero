@@ -20,8 +20,9 @@ from src.incidents.manager import EvidenceBuffer
 from src.visualization import draw, heatmap
 
 class AnalysisWorker:
-    def __init__(self,source,camera,device='cpu',detector=None,store=None,source_kind='video',realtime=True,output_dir=None,source_id=None,source_name=None):
+    def __init__(self,source,camera,device='cpu',detector=None,store=None,source_kind='video',realtime=True,output_dir=None,source_id=None,source_name=None,calibration=None):
         selection=camera_selection(camera.camera_id,'live') if source.live else file_selection(source.source,Path(source.source).name)
+        self.calibration=calibration
         self.analysis_id=uuid.uuid4().hex
         self.source_id=source_id or selection['id']
         self.source_name=source_name or (camera.name if source.live else selection['name'])
@@ -41,14 +42,21 @@ class AnalysisWorker:
     def _publish(self,**values):
         with self.lock: self.snapshot.update(values)
     def _run(self):
-        evidence=None; manager=EventManager(); verifier=CrashVerifier(); tracks=TrajectoryStore()
+        evidence=None; manager=EventManager(); verifier=CrashVerifier(); tracks=TrajectoryStore(self.calibration)
+        from src.video.camera_motion import CameraMotionGuard
+        camera_guard=CameraMotionGuard()
         t=0.; first=None; processed=0; start=time.monotonic()
         try:
+            import hashlib
+            media_digest=None
+            if not self.source.live:
+                with open(self.source.source,'rb') as media:
+                    media_digest=hashlib.file_digest(media,'sha256').hexdigest()
             self.source.open()
             detector=self.detector if self.detector is not None else RoadDetector(self.device)
             self.out.mkdir(parents=True,exist_ok=True)
             evidence=EvidenceBuffer(self.camera,self.incident_store,source_kind=self.source_kind,
-                analysis_id=self.analysis_id,source_id=self.source_id,source_name=self.source_name)
+                analysis_id=self.analysis_id,source_id=self.source_id,source_name=self.source_name,media_digest=media_digest)
             stride=1 if self.source.live else max(1,math.ceil(self.source.fps/12))
             index=0; start=time.monotonic()
             while not self.stop_event.is_set():
@@ -65,22 +73,31 @@ class AnalysisWorker:
                 frame=cv2.resize(frame,(width,height))
                 if first is None: first=frame.copy()
                 detections=detector.track(frame)
+                if self.calibration: detections=detections+self.calibration.object_detections()
                 active=tracks.update(detections,t)
                 interactions=detect_conflicts(active); manager.update(interactions,active,t)
-                verified=verifier.update(active,interactions,t)
+                camera_motion=camera_guard.update(frame,t,[d['box'] for d in detections])
+                if self.detector is not None:
+                    # Explicit engineering fixtures bypass image-based validation.
+                    camera_motion={'available':True,'moving':False,'synthetic':True}
+                verified=verifier.update(active,interactions,t,camera_motion=camera_motion)
                 near=sum(e['status']=='prototype near miss' for e in manager.events)
                 visible={i:tr for i,tr in active.items() if tr.confidence>=SAFETY.minimum_confidence and len(tr.history)>=SAFETY.minimum_display_observations}
                 annotated=draw(frame.copy(),visible,interactions,t,near)
-                evidence.add(t,annotated)
+                evidence.add(t,annotated,{'tracks':{str(i):{'class':tr.cls,'position':tr.position.tolist(),
+                    'velocity':tr.velocity.tolist(),'acceleration':tr.acceleration.tolist(),
+                    'heading':tr.heading,'quality':tr.tracking_quality,'road_position':tr.road_position,
+                    'corridor':tr.corridor} for i,tr in active.items()},'interactions':interactions,'camera_motion':camera_motion})
                 for event in verified:
+                    event['camera_config_hash']=self.calibration.fingerprint if self.calibration else 'uncalibrated'
                     if event['state'].startswith('LIKELY'): evidence.trigger(event)
                 processed+=1
                 self._publish(status='MONITORING',frame=cv2.cvtColor(annotated,cv2.COLOR_BGR2RGB),
-                    risk=max([i['risk'] for i in interactions],default=0),road_users=len(visible),
+                    risk=max([i['risk'] for i in interactions],default=0),road_users=sum(tr.cls!='fixed-object' for tr in visible.values()),
                     conflicts=len(manager.active),near_misses=near,events=copy.deepcopy(manager.events),
                     candidates=copy.deepcopy(list(verifier.candidates.values())),results=list(verifier.results),
                     timestamp=t,fps=processed/max(time.monotonic()-start,.01),
-                    camera=self.camera.metadata(),source_kind=self.source_kind)
+                    camera=self.camera.metadata(),source_kind=self.source_kind,camera_motion=camera_motion)
                 if self.realtime and not self.source.live:
                     self.stop_event.wait(max(0,t-(time.monotonic()-start)))
             manager.flush(t); verifier.flush(t)

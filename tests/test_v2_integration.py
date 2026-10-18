@@ -28,7 +28,8 @@ def test_full_synthetic_collision_evidence(tmp_path,monkeypatch):
     assert Path(r['screenshot_path']).exists() and Path(r['before_path']).exists() and Path(r['after_path']).exists()
     assert probe(r['video_clip_path'])['frames']>=90
     assert r['timestamp']-r['clip_start']>=4.8 and r['clip_end']-r['timestamp']>=4.9
-    assert not r['post_event_truncated']
+    # V3 now requires 10 seconds after the event; this short fixture ends first.
+    assert r['post_event_truncated']
     assert len(IncidentStore(tmp_path/'incidents').list())==1
     from streamlit.testing.v1 import AppTest
     import src.incidents.manager as module

@@ -90,7 +90,7 @@ class CrashVerifier:
         paired_ids = {i for ids,_,_ in proposals for i in ids}
         for i,s in features.items():
             # A normal stop or a legal turn alone cannot trigger a single-vehicle candidate.
-            if eligible[i].cls!='person' and i not in paired_ids and t-s['decel_at'] <= c.recent_motion_seconds and t-s['turn_at'] <= c.event_heading_seconds:
+            if eligible[i].cls not in ('person','fixed-object') and i not in paired_ids and t-s['decel_at'] <= c.recent_motion_seconds and t-s['turn_at'] <= c.event_heading_seconds:
                 tr = eligible[i]
                 proposals.append(((i,), {'x':float(tr.position[0]),'y':float(tr.position[1])}, True))
         for ids,pair,single in proposals:
@@ -99,11 +99,15 @@ class CrashVerifier:
             if any(set(ids)&set(r['ids']) or np.linalg.norm(point-r['point'])<c.spatial_dedup_pixels for r in self.cooldowns): continue
             if len(self.candidates) >= c.max_candidates: continue
             evidence = {k:0. for k in c.weights}
-            evidence.update(trajectory_convergence=0. if single else 1., proximity=0. if single else 1.)
+            evidence.update(trajectory_convergence=0. if single else 1., proximity=0. if single else 1.,
+                closing_motion=float(not single and pair.get('convergence_px_s',0)>0),
+                temporal_alignment=float(not single and pair.get('ttc',0)>0),
+                abnormal_path_deviation=0.)
             self.candidates[ids] = {'track_ids':list(ids), 'road_users':[eligible[i].cls for i in ids],
                 'timestamp':t, 'x':float(point[0]),'y':float(point[1]), 'single':single,
                 'evidence_signals':evidence, 'observations':0, 'missing':False, 'state':'POSSIBLE ACCIDENT',
                 'last_observed':t, 'observed_seconds':0., 'camera_motion_safe':bool(camera_safe),
+                'expected_turn':any(eligible[i].corridor in ('LEFT TURN','RIGHT TURN','MERGE') for i in ids),
                 'minimum_tracking_confidence':min(eligible[i].confidence for i in ids),
                 'calibration_status':'calibrated' if all(eligible[i].road_position is not None for i in ids) else 'image-space',
                 'state_history':[{'state':'MONITORING','timestamp':t}]}
@@ -125,10 +129,15 @@ class CrashVerifier:
                 e['deceleration_anomaly'] = max(e['deceleration_anomaly'],float(any(decels)))
                 e['heading_anomaly'] = max(e['heading_anomaly'],float(any(turns)))
                 launched = [abs(features[i]['launched_at']-event['timestamp']) <= c.event_deceleration_seconds for i in ids]
-                supported_impact = len(ids)>1 and (all(decels) or any(decels) and any(launched))
+                fixed=any(eligible[i].cls=='fixed-object' for i in ids)
+                fixed_impact=fixed and any(decels) and any(turns)
+                e['configured_fixed_object_impact']=float(fixed_impact)
+                supported_impact = len(ids)>1 and (all(decels) or any(decels) and any(launched) or fixed_impact)
                 e['stationary_target_displacement'] = max(e.get('stationary_target_displacement',0.),float(any(launched) and any(decels)))
                 e['simultaneous_motion_change'] = max(e['simultaneous_motion_change'],float(supported_impact))
-                stops = [features[i]['stop_since'] is not None and t-features[i]['stop_since'] >= c.stop_seconds for i in ids]
+                if event['expected_turn'] and any(eligible.get(i) is not None and eligible[i].corridor is None for i in ids):
+                    e['abnormal_path_deviation']=1.
+                stops = [eligible[i].cls!='fixed-object' and (decels[j] or launched[j]) and features[i]['stop_since'] is not None and t-features[i]['stop_since'] >= c.stop_seconds for j,i in enumerate(ids)]
                 e['post_event_stop'] = float(any(stops))
                 e['temporal_persistence'] = min(1.,event['observed_seconds']/c.verification_seconds)
             elif t-event['last_observed'] > c.observation_gap:
@@ -137,8 +146,9 @@ class CrashVerifier:
             if t-event['timestamp'] < c.verification_seconds: continue
             # Correlated trajectory features cannot accumulate unlimited confidence.
             # Each semantic group contributes at most one point, with mandatory gates.
-            interaction = bool(e['trajectory_convergence'] and e['proximity'])
+            interaction = bool(e['trajectory_convergence'] and e['proximity'] and e['closing_motion'] and e['temporal_alignment'])
             impact = bool(e['deceleration_anomaly'] and (e['heading_anomaly'] if event['single'] else e['simultaneous_motion_change']))
+            if event['single'] and event['expected_turn'] and not e['abnormal_path_deviation']: impact=False
             aftermath = bool(e['post_event_stop'])
             groups = {'INTERACTION':interaction, 'IMPACT':impact, 'AFTERMATH':aftermath}
             required = ['IMPACT','AFTERMATH'] if event['single'] else list(groups)
