@@ -206,7 +206,8 @@ if page=='Live Analysis':
         st.session_state.worker=AnalysisWorker(input_source,camera,device,detector=detector,source_kind=source_kind,
             store=IncidentStore(storage_root/'incidents') if HOSTED_V2 else None,
             output_dir=storage_root/'live'/uuid.uuid4().hex[:12] if HOSTED_V2 else None,
-            source_id=selection['id'],source_name=selection['name'],calibration=calibration).start()
+            source_id=selection['id'],source_name=selection['name'],
+            **({'calibration':calibration} if calibration is not None else {})).start()
         st.session_state.setdefault('analysis_by_source',{})[selection['id']]=st.session_state.worker.analysis_id
         st.rerun()
     if stop.button('Stop analysis',disabled=not running): worker.stop();st.rerun()
