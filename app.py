@@ -19,31 +19,32 @@ if os.environ.get('CRASHZERO_V2_HOSTED') != '1':
 
 HOSTED_V2 = os.environ.get('CRASHZERO_V2_HOSTED') == '1'
 
-st.set_page_config(page_title='CrashZero · Predict Risk Before Impact',page_icon='◉',layout='wide')
+st.set_page_config(page_title='CrashZero V3 · Junction Intelligence',page_icon='◉',layout='wide')
 st.markdown('''<style>
-.stApp {background:#101315;color:#eee;}
-.block-container {max-width:1480px;padding-top:2rem;}
-h1 {font-size:1.7rem !important;letter-spacing:.025em;}
-[data-testid="stMetricValue"] {font-size:1.7rem;}
-[data-testid="stMetric"] {padding:10px 0;}
-.stButton>button {border-radius:7px;}
-[data-testid="stHeader"] {background:transparent;}
-[data-testid="stImage"] img {border-radius:8px;}
-[data-testid="stExpander"] {border-color:#2b3033;}
+.stApp {background:#f5f8fa;color:#173042;}
+.block-container {max-width:1480px;padding-top:1.35rem;}
+h1 {font-size:2rem !important;letter-spacing:.01em;color:#103d5c;}
+[data-testid="stMetric"] {background:#fff;border:1px solid #dbe7ed;border-radius:12px;padding:14px;box-shadow:0 2px 8px #16364c12;}
+[data-testid="stMetricValue"] {font-size:1.7rem;color:#0e7490;}
+.stButton>button {border-radius:8px;border:0;background:#0e7490;color:white;}
+[data-testid="stHeader"] {background:#f5f8fa;}
+[data-testid="stImage"] img {border-radius:12px;border:1px solid #dbe7ed;}
+[data-testid="stExpander"] {background:#fff;border:1px solid #dbe7ed;border-radius:10px;}
+.cz-setup {background:#fff;border:1px solid #cfe4eb;border-radius:14px;padding:20px;box-shadow:0 4px 14px #16364c0d;}
 </style>''',unsafe_allow_html=True)
 if HOSTED_V2:
     if 'cloud_session_id' not in st.session_state:
         st.session_state.cloud_session_id = uuid.uuid4().hex
     storage_root = ROOT/'outputs/sessions/cloud'/st.session_state.cloud_session_id
     storage_root.mkdir(parents=True, exist_ok=True)
-    st.caption('Hosted V2 · CPU analysis · IP cameras, uploads and demos · session evidence is temporary; save clips before leaving.')
+    st.caption('CrashZero V3 · CPU analysis · IP cameras, uploads and demos · session evidence is temporary; save clips before leaving.')
 else:
     storage_root = ROOT/'outputs'
 
 brand,status=st.columns([6,1])
 with brand:
-    st.title('CRASHZERO')
-    st.caption('Predict Risk Before Impact')
+    st.title('CRASHZERO V3')
+    st.caption('Junction safety intelligence · evidence-backed monitoring')
 worker=st.session_state.get('worker')
 snapshot=worker.get() if worker else None
 @st.fragment(run_every=1.)
@@ -230,9 +231,7 @@ if page=='Live Analysis':
             else: st.info('Select a source and start analysis.')
             st.caption('Preview only — select Start analysis to run detection and tracking.')
         with right:
-            st.markdown('**READY TO MONITOR**')
-            st.caption('Anonymous road users, trajectory conflicts and temporal accident verification.')
-            st.caption('Emergency dispatch: DEMO ONLY')
+            st.markdown('<div class="cz-setup"><b>JUNCTION DIGITAL TWIN</b><br><br>Upload a fixed-camera junction video, then open <b>Camera & system</b> to configure road calibration. Monitoring shows synchronized CCTV and mapped vehicle movement.<br><br><b>Evidence:</b> verified incidents save short clips only. Emergency dispatch is disabled.</div>',unsafe_allow_html=True)
 elif page=='Conflict Zones':
     st.subheader('Where does danger repeatedly happen?')
     from src.intelligence_store import IntelligenceStore
