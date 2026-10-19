@@ -14,6 +14,8 @@ class RoadCalibration:
                 raise ValueError('Fixed objects need an observed image bounding box [x1,y1,x2,y2].')
         self.corridors = config.get('corridors', [])
         self.matrix = None
+        self.road_points = []
+        self.reprojection_error = None
         self.units = 'image pixels'
         if config.get('image_points') or config.get('road_points'):
             image = np.asarray(config.get('image_points'),dtype=np.float32)
@@ -27,6 +29,10 @@ class RoadCalibration:
             if not np.isfinite(self.matrix).all() or abs(np.linalg.det(self.matrix)) < 1e-10:
                 raise ValueError('Degenerate calibration.')
             self.units = 'normalized road units'
+            self.road_points = road.tolist()
+            inverse = cv2.getPerspectiveTransform(road, image)
+            reprojection = cv2.perspectiveTransform(road.reshape(-1,1,2), inverse).reshape(-1,2)
+            self.reprojection_error = float(np.mean(np.linalg.norm(reprojection-image,axis=1)))
         for corridor in self.corridors:
             polygon = np.asarray(corridor.get('polygon'),dtype=np.float32)
             if polygon.ndim != 2 or polygon.shape[1:] != (2,) or len(polygon)<3 or not np.isfinite(polygon).all():

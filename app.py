@@ -108,12 +108,22 @@ def monitor():
     current=st.session_state.get('worker')
     if not current or getattr(current,'source_id',None)!=(st.session_state.get('selected_source') or {}).get('id'): return
     s=current.get()
-    left,right=st.columns([4.6,1])
+    left,right=st.columns(2)
     with left:
+        st.caption('LIVE CCTV · observed detections')
         if s['frame'] is not None: st.image(s['frame'],channels='RGB',width='stretch')
         else: st.info('Connecting source and loading the local model…')
         st.caption(f"{current.camera.name} · {current.camera.location} · {current.source_kind}")
-    with right: render_status(s)
+    with right:
+        st.caption('JUNCTION DIGITAL TWIN · calibration-gated')
+        if s.get('twin') is not None: st.image(s['twin'],channels='RGB',width='stretch')
+        else: st.info('Digital twin becomes available after calibrated tracked observations.')
+    metrics=st.columns(5)
+    for column,label,value in zip(metrics,['Active vehicles','Conflict candidates','Observed hotspots','Uptime','Processing FPS'],
+                                  [s.get('road_users',0),s.get('conflicts',0),len(s.get('hotspots',[])),
+                                   f"{s.get('monitoring_uptime',0):.0f}s",f"{s.get('fps',0):.1f}"]):
+        column.metric(label,value)
+    render_status(s)
     if s['status'] in ('COMPLETED','STOPPED'): st.caption('Analysis complete. Review Conflict Zones or Incidents; select Start analysis to replay.')
 
 if page=='Live Analysis':

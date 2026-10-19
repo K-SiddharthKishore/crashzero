@@ -17,6 +17,8 @@ from src.conflicts import detect_conflicts
 from src.events import EventManager
 from src.safety.verifier import CrashVerifier
 from src.incidents.manager import EvidenceBuffer
+from src.intelligence_store import IntelligenceStore
+from src.digital_twin import DigitalTwin
 from src.visualization import draw, heatmap
 
 class AnalysisWorker:
@@ -43,6 +45,8 @@ class AnalysisWorker:
         with self.lock: self.snapshot.update(values)
     def _run(self):
         evidence=None; manager=EventManager(); verifier=CrashVerifier(); tracks=TrajectoryStore(self.calibration)
+        intelligence=IntelligenceStore((self.incident_store.root if self.incident_store else ROOT/'outputs/incidents'))
+        twin=DigitalTwin(self.calibration)
         from src.video.camera_motion import CameraMotionGuard
         camera_guard=CameraMotionGuard()
         t=0.; first=None; processed=0; start=time.monotonic()
@@ -81,6 +85,8 @@ class AnalysisWorker:
                     # Explicit engineering fixtures bypass image-based validation.
                     camera_motion={'available':True,'moving':False,'synthetic':True}
                 verified=verifier.update(active,interactions,t,camera_motion=camera_motion)
+                observed_twin=twin.update(active,t)
+                hotspots=intelligence.hotspots(self.camera.camera_id)
                 near=sum(e['status']=='prototype near miss' for e in manager.events)
                 visible={i:tr for i,tr in active.items() if tr.confidence>=SAFETY.minimum_confidence and len(tr.history)>=SAFETY.minimum_display_observations}
                 annotated=draw(frame.copy(),visible,interactions,t,near)
@@ -89,7 +95,10 @@ class AnalysisWorker:
                     'heading':tr.heading,'quality':tr.tracking_quality,'road_position':tr.road_position,
                     'corridor':tr.corridor} for i,tr in active.items()},'interactions':interactions,'camera_motion':camera_motion})
                 for event in verified:
+                    event['analysis_id']=self.analysis_id
                     event['camera_config_hash']=self.calibration.fingerprint if self.calibration else 'uncalibrated'
+                    event['map_position']=self.calibration.project((event['x'],event['y'])) if self.calibration else None
+                    intelligence.save(event,self.camera.camera_id,event['map_position'])
                     if event['state'].startswith('LIKELY'): evidence.trigger(event)
                 processed+=1
                 self._publish(status='MONITORING',frame=cv2.cvtColor(annotated,cv2.COLOR_BGR2RGB),
@@ -98,6 +107,9 @@ class AnalysisWorker:
                     candidates=copy.deepcopy(list(verifier.candidates.values())),results=list(verifier.results),
                     timestamp=t,fps=processed/max(time.monotonic()-start,.01),
                     camera=self.camera.metadata(),source_kind=self.source_kind,camera_motion=camera_motion)
+                self._publish(twin=cv2.cvtColor(twin.render(observed_twin,hotspots),cv2.COLOR_BGR2RGB),
+                              twin_observations=observed_twin,hotspots=hotspots,
+                              monitoring_uptime=time.monotonic()-start)
                 if self.realtime and not self.source.live:
                     self.stop_event.wait(max(0,t-(time.monotonic()-start)))
             manager.flush(t); verifier.flush(t)
