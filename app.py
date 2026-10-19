@@ -235,6 +235,18 @@ if page=='Live Analysis':
             st.caption('Emergency dispatch: DEMO ONLY')
 elif page=='Conflict Zones':
     st.subheader('Where does danger repeatedly happen?')
+    from src.intelligence_store import IntelligenceStore
+    intelligence=IntelligenceStore(storage_root/'incidents' if HOSTED_V2 else ROOT/'outputs/incidents')
+    selected_camera=(snapshot or {}).get('camera',{}).get('camera_id')
+    persisted_hotspots=intelligence.hotspots(selected_camera)
+    st.caption('Persistent hotspot intensity represents observed, deduplicated mapped events; it is not future-crash probability.')
+    if persisted_hotspots:
+        st.dataframe([{'Mapped position':tuple(round(v,3) for v in h['map_position']),
+                       'Category':h['category'],'Observed events':h['count'],
+                       'Evidence IDs':', '.join(e.get('event_id','') for e in h['events'][:3])}
+                      for h in persisted_hotspots],hide_index=True,width='stretch')
+    else:
+        st.info('No calibration-backed persisted conflict hotspots yet. Configure road calibration and monitor a camera or video.')
     sessions={}
     if snapshot and worker:
         sessions['Current analysis']={'events':snapshot.get('events',[]),'image':snapshot.get('heatmap'),'kind':worker.source_kind}
