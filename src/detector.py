@@ -4,8 +4,19 @@ from config.v2 import SAFETY
 (ROOT/".cache/ultralytics").mkdir(parents=True,exist_ok=True)
 os.environ.setdefault("YOLO_CONFIG_DIR",str(ROOT/".cache/ultralytics"))
 
+def resolve_device(device):
+    if device != 'auto':
+        return device
+    import torch
+    if torch.cuda.is_available():
+        return 'cuda:0'
+    if torch.backends.mps.is_available():
+        return 'mps'
+    return 'cpu'
+
+
 class RoadDetector:
-    def __init__(self,device='cpu',image_size=640,tracker=None,confidence=None):
+    def __init__(self,device='auto',image_size=640,tracker=None,confidence=None):
         import torch
         from ultralytics import YOLO
         if not MODEL.exists() and os.environ.get('CRASHZERO_V2_HOSTED') == '1':
@@ -14,7 +25,7 @@ class RoadDetector:
         if not MODEL.exists():
             raise FileNotFoundError('YOLO weights missing. Run .venv/bin/python scripts/fetch_model.py once online.')
         torch.set_num_threads(4)
-        self.model=YOLO(str(MODEL)); self.device=device; self.image_size=image_size
+        self.model=YOLO(str(MODEL)); self.device=resolve_device(device); self.image_size=image_size
         self.tracker=tracker or str(ROOT/'config/bytetrack-v2.yaml')
         self.confidence=SAFETY.detection_confidence if confidence is None else confidence
     def track(self,frame):

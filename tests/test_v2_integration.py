@@ -35,14 +35,18 @@ def test_full_synthetic_collision_evidence(tmp_path,monkeypatch):
     import src.incidents.manager as module
     monkeypatch.setattr(module,'IncidentStore',lambda:store)
     app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=30).run()
+    next(b for b in app.button if b.label=='Open Junction Intelligence →').click().run()
+    app.segmented_control[0].set_value('DEMO').run()
     demo=next(s for s in app.selectbox if s.label=='Offline scenario')
     demo.set_value('Collision · SYNTHETIC TEST').run()
     app.session_state['worker']=worker
     app.session_state['analysis_by_source']={worker.source_id:worker.analysis_id}
+    app.run()
+    assert app.radio[0].value=='Danger Spots'
     app.radio[0].set_value('Incidents').run()
     assert not app.exception
     assert any('LIKELY COLLISION' in e.label for e in app.expander)
-    app.radio[0].set_value('Live Analysis').run()
+    app.radio[0].set_value('Track vehicles').run()
     assert next(s for s in app.selectbox if s.label=='Offline scenario').value=='Collision · SYNTHETIC TEST'
     next(s for s in app.selectbox if s.label=='Offline scenario').set_value('Normal · SYNTHETIC TEST').run()
     assert not app.exception
@@ -56,16 +60,21 @@ def test_full_synthetic_collision_evidence(tmp_path,monkeypatch):
         store=store,realtime=False,output_dir=tmp_path/'normal').start()
     normal.thread.join(30)
     assert normal.get()['status']=='COMPLETED'
+    assert isinstance(normal.get()['frame'],bytes)
+    assert normal.get()['progress']==1.
     app.session_state['worker']=normal
     app.session_state['analysis_by_source']={worker.source_id:worker.analysis_id,normal.source_id:normal.analysis_id}
     app.run()
     assert not app.exception
+    assert app.radio[0].value=='Danger Spots'
+    assert any('No danger spots detected in this video' in e.value for e in app.info)
+    app.radio[0].set_value('Incidents').run()
     assert any('No likely accidents recorded for this analysis' in e.value for e in app.info)
     assert not any('LIKELY COLLISION' in e.label for e in app.expander)
     # History remains available explicitly, and changing back restores the right result.
     app.segmented_control[0].set_value('All saved incidents').run()
     assert any('LIKELY COLLISION' in e.label for e in app.expander)
-    app.radio[0].set_value('Live Analysis').run()
+    app.radio[0].set_value('Track vehicles').run()
     next(s for s in app.selectbox if s.label=='Offline scenario').set_value('Collision · SYNTHETIC TEST').run()
     app.radio[0].set_value('Incidents').run()
     assert not app.exception

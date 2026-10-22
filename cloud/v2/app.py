@@ -10,4 +10,6 @@ os.environ['CRASHZERO_V2_HOSTED'] = '1'
 os.environ['REAL_CALLS_ENABLED'] = 'false'
 os.environ['AUTO_TEST_CALL_ENABLED'] = 'false'
 os.environ['CALL_PROVIDER'] = 'mock'
+os.environ['M2_REAL_CALLS_ENABLED'] = 'false'
+os.environ['M2_CALL_MODE'] = 'mock'
 runpy.run_path(str(root / 'app.py'), run_name='__main__')

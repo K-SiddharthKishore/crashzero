@@ -1,4 +1,4 @@
-"""CrashZero V2 — three focused screens; V1 remains available in app_v1.py."""
+"""CrashZero presentation flow; V1 remains available in app_v1.py."""
 from pathlib import Path
 import hashlib
 import json
@@ -19,53 +19,93 @@ if os.environ.get('CRASHZERO_V2_HOSTED') != '1':
 
 HOSTED_V2 = os.environ.get('CRASHZERO_V2_HOSTED') == '1'
 
-st.set_page_config(page_title='CrashZero V3 · Junction Intelligence',page_icon='◉',layout='wide')
-st.markdown('''<style>
-.stApp {background:#f5f8fa;color:#173042;}
-.block-container {max-width:1480px;padding-top:1.35rem;}
-h1 {font-size:2rem !important;letter-spacing:.01em;color:#103d5c;}
-[data-testid="stMetric"] {background:#fff;border:1px solid #dbe7ed;border-radius:12px;padding:14px;box-shadow:0 2px 8px #16364c12;}
-[data-testid="stMetricValue"] {font-size:1.7rem;color:#0e7490;}
-.stButton>button {border-radius:8px;border:0;background:#0e7490;color:white;}
-[data-testid="stHeader"] {background:#f5f8fa;}
-[data-testid="stImage"] img {border-radius:12px;border:1px solid #dbe7ed;}
-[data-testid="stExpander"] {background:#fff;border:1px solid #dbe7ed;border-radius:10px;}
-.cz-setup {background:#fff;border:1px solid #cfe4eb;border-radius:14px;padding:20px;box-shadow:0 4px 14px #16364c0d;}
-</style>''',unsafe_allow_html=True)
+st.set_page_config(page_title='CrashZero · Road Safety Intelligence',page_icon='◉',layout='wide',initial_sidebar_state='collapsed')
+st.markdown('<style>'+(ROOT/'assets/presentation.css').read_text()+'</style>',unsafe_allow_html=True)
+
+MODULE_ONE='Junction Intelligence'
+MODULE_TWO='Accident Response'
+
+def choose_module(name):
+    st.session_state.cz_module=name
+    if name==MODULE_ONE:
+        st.session_state.cz_nav='Track vehicles'
+        st.session_state.setdefault('_source_mode','UPLOAD VIDEO')
+    st.rerun()
+
+if not st.session_state.get('cz_module'):
+    st.markdown('<div class="cz-eyebrow">CRASHZERO / ROAD SAFETY INTELLIGENCE</div>',unsafe_allow_html=True)
+    st.title('See the risk. Choose your workflow.')
+    st.caption('Explore junction danger spots or review possible accident evidence. Select a module to begin.')
+    left,right=st.columns(2,gap='large')
+    with left:
+        st.markdown('<div class="cz-module"><div class="cz-module-num">01 / JUNCTION INTELLIGENCE</div><h2>Find danger spots</h2><p>Upload traffic footage, follow vehicle tracks, and see where risky interactions cluster.</p></div>',unsafe_allow_html=True)
+        if st.button('Open Junction Intelligence →',type='primary',use_container_width=True):choose_module(MODULE_ONE)
+    with right:
+        st.markdown('<div class="cz-module"><div class="cz-module-num">02 / ACCIDENT RESPONSE</div><h2>Review possible accidents</h2><p>Analyze a recording, inspect evidence, and review alert history.</p></div>',unsafe_allow_html=True)
+        if st.button('Open Accident Response →',use_container_width=True):choose_module(MODULE_TWO)
+    st.caption('Research prototype · scores are indicators, not certified crash predictions.')
+    st.stop()
+
+top_left,top_right=st.columns([3,1.5])
+with top_left: st.markdown('<div class="cz-eyebrow">CRASHZERO / '+st.session_state.cz_module.upper()+'</div>',unsafe_allow_html=True)
+with top_right:
+    if st.button('← Change module',use_container_width=True):
+        st.session_state.cz_module=None
+        st.rerun()
+
 if HOSTED_V2:
     if 'cloud_session_id' not in st.session_state:
         st.session_state.cloud_session_id = uuid.uuid4().hex
     storage_root = ROOT/'outputs/sessions/cloud'/st.session_state.cloud_session_id
     storage_root.mkdir(parents=True, exist_ok=True)
-    st.caption('CrashZero V3 · CPU analysis · IP cameras, uploads and demos · session evidence is temporary; save clips before leaving.')
 else:
     storage_root = ROOT/'outputs'
 
+if st.session_state.cz_module==MODULE_TWO:
+    from module_2_accident_response.ui.accident_dashboard import render_dashboard
+    render_dashboard(data_dir=storage_root/'module2_accident_response' if HOSTED_V2 else None)
+    st.stop()
+
+if HOSTED_V2:
+    st.caption('CrashZero V3 · CPU analysis · IP cameras, uploads and demos · session evidence is temporary; save clips before leaving.')
+
 brand,status=st.columns([6,1])
 with brand:
-    st.title('CRASHZERO V3')
-    st.caption('Junction safety intelligence · evidence-backed monitoring')
+    st.title('Junction Intelligence')
+    st.caption('Upload a video · track road users · review danger spots')
 worker=st.session_state.get('worker')
 snapshot=worker.get() if worker else None
+
+def advance_completed(current,state):
+    if (current and state['status']=='COMPLETED' and not current.source.live
+            and current.thread and not current.thread.is_alive()
+            and current.source_id==(st.session_state.get('selected_source') or {}).get('id')
+            and st.session_state.get('cz_autonavigated_analysis')!=current.analysis_id):
+        st.session_state.cz_autonavigated_analysis=current.analysis_id
+        st.session_state.cz_requested_route='Danger Spots'
+        return True
+    return False
+
+if snapshot: advance_completed(worker,snapshot)
+requested_route=st.session_state.pop('cz_requested_route',None)
+if requested_route: st.session_state.cz_nav=requested_route
 @st.fragment(run_every=1.)
 def system_status():
     current=st.session_state.get('worker')
     state=current.get()['status'] if current else None
     st.caption('● AI ONLINE' if state=='MONITORING' else '○ AI READY' if (ROOT/'models/yolo11n.pt').exists() else '○ MODEL ON FIRST USE' if HOSTED_V2 else '○ MODEL MISSING')
-    if current and state in ('COMPLETED','STOPPED','ERROR','DISCONNECTED') and not current.thread.is_alive():
-        token=str(current.out)
-        if st.session_state.get('completed_worker')!=token:
-            st.session_state.completed_worker=token
-            st.rerun()
+    if current and state=='COMPLETED' and advance_completed(current,current.get()):
+        st.rerun(scope='app')
 with status: system_status()
-page=st.radio('Navigation',['Live Analysis','Conflict Zones','Incidents'],horizontal=True,label_visibility='collapsed')
+page=st.radio('Navigation',['Track vehicles','Danger Spots','Incidents'],horizontal=True,
+              label_visibility='collapsed',key='cz_nav')
 
-with st.expander('⚙ Camera & system'):
+with st.expander('Advanced settings · camera, calibration and performance'):
     a,b,c=st.columns(3)
     camera_id=a.text_input('Camera ID',value=os.environ.get('CRASHZERO_CAMERA_ID','CAM-01'))
     camera_name=b.text_input('Camera name',value=os.environ.get('CRASHZERO_CAMERA_NAME','Local camera'))
     location=c.text_input('Registered location',value=os.environ.get('CRASHZERO_CAMERA_LOCATION','LOCATION NOT CONFIGURED'))
-    device=st.selectbox('Inference device',(['cpu'] if HOSTED_V2 else ['cpu','mps']),help='CPU is the verified fallback. MPS support depends on the installed PyTorch build.')
+    device=st.selectbox('Inference device',(['cpu'] if HOSTED_V2 else ['auto','cpu','mps']),help='Auto uses an available GPU, otherwise CPU. Choose CPU to override.')
     debug=st.checkbox('Show system details')
     st.caption('Image-space estimates • no physical speed or distance claim • alerts are simulated locally.')
     if debug:
@@ -81,9 +121,6 @@ def render_status(s):
     st.caption(s['status'])
     recent_likely=bool(s.get('results') and s['results'][-1]['state'].startswith('LIKELY') and s['timestamp']-s['results'][-1].get('verified_at',0)<8)
     st.metric('LIVE RISK','CRITICAL' if recent_likely else 'HIGH' if s.get('candidates') else category(s['risk']))
-    st.metric('Road users',s['road_users'])
-    st.metric('Active conflicts',s['conflicts'])
-    st.metric('Near misses',s['near_misses'])
     if s.get('candidates'):
         st.warning('POSSIBLE ACCIDENT · VERIFYING…')
         for e in s['candidates']:
@@ -104,34 +141,42 @@ def render_status(s):
     if s.get('message'): st.warning(s['message'])
     if debug: st.caption(f"{s['fps']:.1f} processed FPS · source {s['timestamp']:.1f}s")
 
-@st.fragment(run_every=.5)
+@st.fragment(run_every=.125)
 def monitor():
     current=st.session_state.get('worker')
     if not current or getattr(current,'source_id',None)!=(st.session_state.get('selected_source') or {}).get('id'): return
     s=current.get()
-    left,right=st.columns(2)
-    with left:
-        st.caption('LIVE CCTV · observed detections')
-        if s['frame'] is not None: st.image(s['frame'],channels='RGB',width='stretch')
-        else: st.info('Connecting source and loading the local model…')
-        st.caption(f"{current.camera.name} · {current.camera.location} · {current.source_kind}")
-    with right:
-        st.caption('JUNCTION DIGITAL TWIN · calibration-gated')
-        if s.get('twin') is not None: st.image(s['twin'],channels='RGB',width='stretch')
-        else: st.info('Digital twin becomes available after calibrated tracked observations.')
-    metrics=st.columns(5)
-    for column,label,value in zip(metrics,['Active vehicles','Conflict candidates','Observed hotspots','Uptime','Processing FPS'],
-                                  [s.get('road_users',0),s.get('conflicts',0),len(s.get('hotspots',[])),
-                                   f"{s.get('monitoring_uptime',0):.0f}s",f"{s.get('fps',0):.1f}"]):
+    if s['status']=='COMPLETED' and advance_completed(current,s):
+        st.rerun(scope='app')
+    st.markdown('<div class="cz-section-label">TRACKING PREVIEW</div>',unsafe_allow_html=True)
+    if s['frame'] is not None: st.image(s['frame'],width='stretch')
+    else: st.info('Connecting source and loading the local model…')
+    st.caption(f"{current.camera.name} · {current.source_kind}")
+    if current.source.live:
+        st.caption('Live camera · showing the newest available frame')
+        if st.button('View Danger Spots →',key='live_zones'):
+            st.session_state.cz_requested_route='Danger Spots'
+            st.rerun(scope='app')
+    elif s.get('progress') is not None:
+        st.progress(s['progress'],text=f"Analyzing video · {s['progress']:.0%}")
+    else:
+        st.caption('Analyzing video · progress is unavailable for this file')
+    metrics=st.columns(4)
+    for column,label,value in zip(metrics,['Road users','Active conflicts','Near misses','Processing speed'],
+                                  [s.get('road_users',0),s.get('conflicts',0),s.get('near_misses',0),f"{s.get('fps',0):.1f} FPS"]):
         column.metric(label,value)
     render_status(s)
-    if s['status'] in ('COMPLETED','STOPPED'): st.caption('Analysis complete. Review Conflict Zones or Incidents; select Start analysis to replay.')
+    if s['status']=='STOPPED': st.info('Analysis stopped. Start again to complete a video.')
+    if s['status']=='COMPLETED': st.success('Analysis complete. Open Danger Spots to review the result.')
 
-if page=='Live Analysis':
+if page=='Track vehicles':
+    st.markdown('<div class="cz-section-label">STEP 1 / VIDEO ANALYSIS</div>',unsafe_allow_html=True)
+    st.subheader('Track vehicles in your footage')
+    st.caption('Choose a recording or a live source, then start analysis. Completed videos open Danger Spots automatically.')
     # Durable values survive Streamlit cleaning up widgets on other screens.
     if '_source_mode' not in st.session_state:
-        st.session_state['_source_mode']=st.session_state.get('source_mode','DEMO')
-    mode=st.segmented_control('SOURCE',['LIVE CAMERA','UPLOAD VIDEO','DEMO'],key='_source_mode')
+        st.session_state['_source_mode']=st.session_state.get('source_mode','UPLOAD VIDEO')
+    mode=st.segmented_control('Video source',['UPLOAD VIDEO','DEMO','LIVE CAMERA'],key='_source_mode')
     st.session_state.source_mode=mode
     selection=None
     source=None; fixture=None; source_kind='video'
@@ -201,7 +246,14 @@ if page=='Live Analysis':
                 fixture=path.with_suffix('.json'); source_kind='SYNTHETIC trajectory fixture — detector bypassed'
                 st.warning('Synthetic engineering scenario: scripted detections test verification and evidence capture. This is not real accident footage or detector accuracy evidence.')
         else: st.info('No local demo video found. Upload a video or fetch the documented demo assets.')
-    st.session_state.selected_source=selection
+    if selection is not None:
+        st.session_state.selected_source=selection
+    elif not (worker and worker.thread and worker.thread.is_alive()):
+        st.session_state.selected_source=None
+    speed_mode=st.radio('Analysis quality',['Fast','Detailed'],horizontal=True,
+        help='Fast uses 416 px detector input; Detailed uses 640 px and better preserves small distant road users.')
+    pace_video=st.checkbox('Play at normal speed',value=False,disabled=bool(source and source[0]!='file'),
+        help='Leave off to analyze files as quickly as possible. Live cameras always use the newest available frame.')
     start,stop,_=st.columns([1,1,5])
     running=bool(worker and worker.thread and worker.thread.is_alive())
     if start.button('Start analysis',type='primary',disabled=not source or running):
@@ -218,6 +270,7 @@ if page=='Live Analysis':
             store=IncidentStore(storage_root/'incidents') if HOSTED_V2 else None,
             output_dir=storage_root/'live'/uuid.uuid4().hex[:12] if HOSTED_V2 else None,
             source_id=selection['id'],source_name=selection['name'],
+            image_size=416 if speed_mode=='Fast' else 640,realtime=pace_video,
             **({'calibration':calibration} if calibration is not None else {})).start()
         st.session_state.setdefault('analysis_by_source',{})[selection['id']]=st.session_state.worker.analysis_id
         st.rerun()
@@ -231,43 +284,49 @@ if page=='Live Analysis':
             else: st.info('Select a source and start analysis.')
             st.caption('Preview only — select Start analysis to run detection and tracking.')
         with right:
-            st.markdown('<div class="cz-setup"><b>JUNCTION DIGITAL TWIN</b><br><br>Upload a fixed-camera junction video, then open <b>Camera & system</b> to configure road calibration. Monitoring shows synchronized CCTV and mapped vehicle movement.<br><br><b>Evidence:</b> verified incidents save short clips only. Emergency dispatch is disabled.</div>',unsafe_allow_html=True)
-elif page=='Conflict Zones':
-    st.subheader('Where does danger repeatedly happen?')
+            st.markdown('<div class="cz-setup"><b>WHAT HAPPENS NEXT</b><br><br>CrashZero follows vehicles and checks their interactions. When a recording finishes, the next screen highlights zones with observed conflicts.<br><br><b>Note:</b> zones are positions in this camera image unless the road is calibrated.</div>',unsafe_allow_html=True)
+elif page=='Danger Spots':
+    st.markdown('<div class="cz-section-label">STEP 2 / ANALYSIS RESULTS</div>',unsafe_allow_html=True)
+    st.subheader('Danger Spots')
+    st.caption('See where observed traffic conflicts clustered in the selected camera view.')
     from src.intelligence_store import IntelligenceStore
     intelligence=IntelligenceStore(storage_root/'incidents' if HOSTED_V2 else ROOT/'outputs/incidents')
-    selected_camera=(snapshot or {}).get('camera',{}).get('camera_id')
-    persisted_hotspots=intelligence.hotspots(selected_camera)
-    st.caption('Persistent hotspot intensity represents observed, deduplicated mapped events; it is not future-crash probability.')
-    if persisted_hotspots:
-        st.dataframe([{'Mapped position':tuple(round(v,3) for v in h['map_position']),
-                       'Category':h['category'],'Observed events':h['count'],
-                       'Evidence IDs':', '.join(e.get('event_id','') for e in h['events'][:3])}
-                      for h in persisted_hotspots],hide_index=True,width='stretch')
-    else:
-        st.info('No calibration-backed persisted conflict hotspots yet. Configure road calibration and monitor a camera or video.')
     sessions={}
     if snapshot and worker:
-        sessions['Current analysis']={'events':snapshot.get('events',[]),'image':snapshot.get('heatmap'),'kind':worker.source_kind}
+        sessions['Current analysis']={'events':snapshot.get('events',[]),'image':snapshot.get('heatmap'),
+            'frame':snapshot.get('frame'),'kind':worker.source_kind,'analysis_id':worker.analysis_id}
     for p in sorted((storage_root/'live').glob('*/events.json'),key=lambda p:p.stat().st_mtime,reverse=True)[:20]:
         data=json.loads(p.read_text()); sessions[f"{data['camera']['name']} · {p.parent.name}"]={'events':data['events'],'image':str(p.parent/'heatmap.jpg'),'kind':data['source_kind']}
     cached=ROOT/'outputs/demo/analytics.json'
     if cached.exists(): sessions['V1 traffic demo · saved analysis']={'events':json.loads(cached.read_text())['events'],'image':str(cached.parent/'heatmap.jpg'),'kind':'Real traffic · saved V1 analysis'}
     if sessions:
         chosen=st.selectbox('Camera / analysis session',list(sessions)); data=sessions[chosen]
-        st.caption(data['kind']+' · Image coordinates; sessions are kept separate to avoid mixing cameras.')
+        st.caption(data['kind']+' · Zones use coordinates in this camera image.')
+        zones=conflict_zones(data['events'])
+        if zones:
+            st.markdown('<div class="cz-section-label">CAMERA VIEW / OBSERVED CONFLICTS</div>',unsafe_allow_html=True)
         if data['image'] and Path(data['image']).exists():
             import cv2
             from src.zones import draw_zone_labels
             zone_image=draw_zone_labels(cv2.imread(data['image']),data['events'])
             st.image(zone_image,channels='BGR',width='stretch')
-        elif snapshot and snapshot.get('frame') is not None: st.image(snapshot['frame'],width='stretch')
-        zones=conflict_zones(data['events'])
-        if not zones: st.info('No accumulated conflict episodes yet.')
+        elif data.get('frame') is not None: st.image(data['frame'],width='stretch')
+        if not zones: st.info('No danger spots detected in this video. Try another recording or review the tracked footage.')
         for zone in zones:
-            with st.expander(f"{zone['zone']} · {zone['risk']} · {zone['conflicts']} conflicts · {zone['near_misses']} near misses"):
+            with st.expander(f"{zone['zone']} · {zone['risk']} · {zone['conflicts']} observed conflicts · {zone['near_misses']} near misses"):
                 st.write(zone['main_interaction']);st.caption('Trend: '+zone['trend'])
                 st.dataframe([{k:e.get(k) for k in ['timestamp','classes','peak_risk','status','x','y']} for e in zone['events']],hide_index=True,width='stretch')
+        if (chosen=='Current analysis' and worker and worker.calibration
+                and worker.calibration.matrix is not None):
+            persisted_hotspots=intelligence.hotspots(worker.camera.camera_id)
+            if persisted_hotspots:
+                st.markdown('<div class="cz-section-label">CALIBRATED ROAD MAP</div>',unsafe_allow_html=True)
+                if snapshot.get('twin') is not None: st.image(snapshot['twin'],width='stretch')
+                st.dataframe([{'Mapped position':tuple(round(v,3) for v in h['map_position']),
+                    'Category':h['category'],'Observed events':h['count']} for h in persisted_hotspots],
+                    hide_index=True,width='stretch')
+        if st.button('Review incident evidence →',type='primary',key='zones_to_incidents'):
+            st.session_state.cz_requested_route='Incidents';st.rerun()
     else: st.info('Analyze a video to accumulate conflict locations.')
 else:
     @st.fragment(run_every=1.)

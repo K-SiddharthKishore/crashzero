@@ -1,11 +1,16 @@
 [theme]
-base = "dark"
-primaryColor = "#5b8def"
-backgroundColor = "#0b0d10"
-secondaryBackgroundColor = "#15191f"
-textColor = "#f2f4f7"
+base = "light"
+primaryColor = "#1763a6"
+backgroundColor = "#f4f7fb"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#172c43"
 font = "sans serif"
 [server]
 maxUploadSize = 200
 [browser]
 gatherUsageStats = false
+
+[runner]
+# Frequent monitor fragments must not force a full Python heap collection.
+# Normal automatic garbage collection remains enabled.
+postScriptGC = false

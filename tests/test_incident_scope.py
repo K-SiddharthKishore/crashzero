@@ -28,13 +28,13 @@ def test_upload_selection_survives_navigation_and_can_be_cleared(monkeypatch,tmp
     store=IncidentStore(tmp_path/'incidents')
     monkeypatch.setattr(module,'IncidentStore',lambda:store)
     app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=30).run()
-    app.segmented_control[0].set_value('UPLOAD VIDEO').run()
+    next(b for b in app.button if b.label=='Open Junction Intelligence →').click().run()
     app.session_state['saved_upload']={'path':str(ROOT/'data/simulations/normal.mp4'),'name':'my-drive.mp4'}
     app.run()
     selected=app.session_state['selected_source']
     app.radio[0].set_value('Incidents').run()
     assert any('my-drive.mp4' in e.value for e in app.caption)
-    app.radio[0].set_value('Live Analysis').run()
+    app.radio[0].set_value('Track vehicles').run()
     assert app.segmented_control[0].value=='UPLOAD VIDEO'
     assert app.session_state['selected_source']==selected
     # Another UI rerun must not clear an upload merely because its widget was recreated.

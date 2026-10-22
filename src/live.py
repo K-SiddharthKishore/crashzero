@@ -22,9 +22,10 @@ from src.digital_twin import DigitalTwin
 from src.visualization import draw, heatmap
 
 class AnalysisWorker:
-    def __init__(self,source,camera,device='cpu',detector=None,store=None,source_kind='video',realtime=True,output_dir=None,source_id=None,source_name=None,calibration=None):
+    def __init__(self,source,camera,device='auto',detector=None,store=None,source_kind='video',realtime=True,output_dir=None,source_id=None,source_name=None,calibration=None,image_size=640):
         selection=camera_selection(camera.camera_id,'live') if source.live else file_selection(source.source,Path(source.source).name)
         self.calibration=calibration
+        self.image_size=image_size
         self.analysis_id=uuid.uuid4().hex
         self.source_id=source_id or selection['id']
         self.source_name=source_name or (camera.name if source.live else selection['name'])
@@ -40,7 +41,10 @@ class AnalysisWorker:
     def stop(self): self.stop_event.set()
     def get(self):
         self.last_poll=time.monotonic()
-        with self.lock: return copy.deepcopy(self.snapshot)
+        with self.lock:
+            # Preview images are immutable JPEG bytes. Copy only mutable metadata.
+            return {key: value if key in ('frame', 'twin') else copy.deepcopy(value)
+                    for key, value in self.snapshot.items()}
     def _publish(self,**values):
         with self.lock: self.snapshot.update(values)
     def _run(self):
@@ -57,12 +61,16 @@ class AnalysisWorker:
                 with open(self.source.source,'rb') as media:
                     media_digest=hashlib.file_digest(media,'sha256').hexdigest()
             self.source.open()
-            detector=self.detector if self.detector is not None else RoadDetector(self.device)
+            detector=self.detector if self.detector is not None else RoadDetector(self.device,image_size=self.image_size)
             self.out.mkdir(parents=True,exist_ok=True)
             evidence=EvidenceBuffer(self.camera,self.incident_store,source_kind=self.source_kind,
                 analysis_id=self.analysis_id,source_id=self.source_id,source_name=self.source_name,media_digest=media_digest)
             stride=1 if self.source.live else max(1,math.ceil(self.source.fps/12))
-            index=0; start=time.monotonic()
+            frame_count=self.source.capture.get(cv2.CAP_PROP_FRAME_COUNT) if not self.source.live else 0
+            total_frames=int(frame_count) if math.isfinite(frame_count) and frame_count>0 else 0
+            index=0; start=time.monotonic(); next_preview=0.
+            hotspots=[]; next_hotspot_refresh=0.
+            next_twin_render=0.; twin_frame=None
             while not self.stop_event.is_set():
                 # Release devices if the browser disconnects instead of recording indefinitely.
                 if time.monotonic()-self.last_poll>120: break
@@ -85,8 +93,7 @@ class AnalysisWorker:
                     # Explicit engineering fixtures bypass image-based validation.
                     camera_motion={'available':True,'moving':False,'synthetic':True}
                 verified=verifier.update(active,interactions,t,camera_motion=camera_motion)
-                observed_twin=twin.update(active,t)
-                hotspots=intelligence.hotspots(self.camera.camera_id)
+                observed_twin=twin.update(active,t) if self.calibration else []
                 near=sum(e['status']=='prototype near miss' for e in manager.events)
                 visible={i:tr for i,tr in active.items() if tr.confidence>=SAFETY.minimum_confidence and len(tr.history)>=SAFETY.minimum_display_observations}
                 annotated=draw(frame.copy(),visible,interactions,t,near)
@@ -98,16 +105,34 @@ class AnalysisWorker:
                     event['analysis_id']=self.analysis_id
                     event['camera_config_hash']=self.calibration.fingerprint if self.calibration else 'uncalibrated'
                     event['map_position']=self.calibration.project((event['x'],event['y'])) if self.calibration else None
-                    intelligence.save(event,self.camera.camera_id,event['map_position'])
+                    if intelligence.save(event,self.camera.camera_id,event['map_position']):
+                        next_hotspot_refresh=0.
                     if event['state'].startswith('LIKELY'): evidence.trigger(event)
+                now=time.monotonic()
+                if now>=next_hotspot_refresh:
+                    hotspots=intelligence.hotspots(self.camera.camera_id)
+                    next_hotspot_refresh=now+1.
                 processed+=1
-                self._publish(status='MONITORING',frame=cv2.cvtColor(annotated,cv2.COLOR_BGR2RGB),
+                preview=None
+                if now>=next_preview:
+                    encoded,jpg=cv2.imencode('.jpg',annotated,[cv2.IMWRITE_JPEG_QUALITY,78])
+                    if encoded: preview=jpg.tobytes()
+                    next_preview=now+.125
+                update={'frame':preview} if preview is not None else {}
+                self._publish(status='MONITORING',**update,
                     risk=max([i['risk'] for i in interactions],default=0),road_users=sum(tr.cls!='fixed-object' for tr in visible.values()),
                     conflicts=len(manager.active),near_misses=near,events=copy.deepcopy(manager.events),
                     candidates=copy.deepcopy(list(verifier.candidates.values())),results=list(verifier.results),
                     timestamp=t,fps=processed/max(time.monotonic()-start,.01),
+                    progress=min(1.,index/total_frames) if total_frames>0 else None,
                     camera=self.camera.metadata(),source_kind=self.source_kind,camera_motion=camera_motion)
-                self._publish(twin=cv2.cvtColor(twin.render(observed_twin,hotspots),cv2.COLOR_BGR2RGB),
+                # A map without calibration has no observed coordinates to render.
+                if self.calibration and (twin_frame is None or now>=next_twin_render):
+                    rendered=twin.render(observed_twin,hotspots)
+                    encoded,jpg=cv2.imencode('.jpg',rendered,[cv2.IMWRITE_JPEG_QUALITY,78])
+                    twin_frame=jpg.tobytes() if encoded else None
+                    next_twin_render=now+.2
+                self._publish(twin=twin_frame,
                               twin_observations=observed_twin,hotspots=hotspots,
                               monitoring_uptime=time.monotonic()-start)
                 if self.realtime and not self.source.live:
@@ -115,6 +140,7 @@ class AnalysisWorker:
             manager.flush(t); verifier.flush(t)
             if processed==0: raise ValueError('No readable frames. Choose another video or check camera access.')
             self._publish(events=copy.deepcopy(manager.events),results=list(verifier.results),candidates=[],conflicts=0,
+                progress=1. if not self.source.live and not self.stop_event.is_set() else self.snapshot.get('progress'),
                 near_misses=sum(e['status']=='prototype near miss' for e in manager.events))
         except Exception as exc:
             self._publish(error_code=type(exc).__name__)

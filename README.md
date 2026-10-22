@@ -1,10 +1,10 @@
-# CrashZero V2
+# CrashZero V3
 
 **Predict Risk Before Impact**
 
 CrashZero watches traffic before, during and after dangerous events — identifying conflict zones, detecting likely accidents and preserving the information needed for faster response.
 
-A local hackathon prototype with exactly three primary screens: **Live Analysis**, **Conflict Zones**, and **Incidents**. No real emergency service is contacted. Evidence scores are configurable heuristics, not calibrated probabilities.
+A local research prototype with a two-module chooser. **Junction Intelligence** moves from vehicle tracking to **Danger Spots** when a video finishes; **Accident Response** reviews possible accident evidence. Evidence scores are configurable heuristics, not calibrated probabilities.
 
 ## Run on this Mac
 
@@ -19,7 +19,7 @@ Open http://127.0.0.1:8501. If occupied (as it was during development):
 PORT=8502 ./run.sh
 ```
 
-The existing `.venv` uses Python 3.12.13. No environment replacement or new dependency installation was required. CPU is the tested default; MPS is optional and has not been benchmarked.
+The existing `.venv` uses Python 3.12.13. No environment replacement or new dependency installation is required. Local Module 1 defaults to automatic device selection and Fast analysis; CPU remains available in Advanced settings.
 
 For a fresh environment, use the existing `./setup.sh` and pinned `requirements.txt`. Models and real demo assets must be fetched once before offline use:
 
@@ -31,9 +31,15 @@ For a fresh environment, use the existing `./setup.sh` and pinned `requirements.
 
 Model path: `models/yolo11n.pt`. The local real traffic videos and generated synthetic fixtures work offline once present. Synthetic scenario videos and their scripted detection fixtures are included in V2; regenerating them is optional.
 
+## Presentation flow
+
+Open the site and choose **Junction Intelligence** or **Accident Response**. For Module 1, upload a video and select **Start analysis**. The tracked preview shows progress and processing speed. On successful completion, the app opens **Danger Spots** for that same analysis; use **Review incident evidence** for the final step. A live camera has a manual **View Danger Spots** action because its stream does not finish. **Change module** returns to the chooser.
+
+Fast uses a smaller detector input and may miss small distant road users; Detailed retains the larger input. Processing files as quickly as possible is the default. The preview is updated at up to eight frames per second while the worker continues processing sampled source frames and evidence. Without road calibration, zones identify positions in the camera image only.
+
 ## Use
 
-- **Demo:** select a local real traffic video and Start analysis to run YOLO11n/ByteTrack. Preview alone does not run inference. For a deterministic incident workflow demonstration, choose **Collision · SYNTHETIC TEST** or **Single Bike · SYNTHETIC TEST**. These explicitly bypass detection using scripted tracks, and must not be represented as real crash detection performance.
+- **Demo:** choose Junction Intelligence → Demo, select a local real traffic video, and Start analysis to run YOLO11n/ByteTrack. Preview alone does not run inference. For a deterministic incident workflow demonstration, choose **Collision · SYNTHETIC TEST** or **Single Bike · SYNTHETIC TEST**. These explicitly bypass detection using scripted tracks, and must not be represented as real crash detection performance.
 - **Upload video:** upload MP4/MOV/AVI/MKV, then Start analysis. Files remain local in ignored `outputs/sessions/uploads/`.
 - **Webcam:** select Live Camera → Device webcam → device index (usually 0). This is the camera attached to the Python server, not a remote browser's camera.
 - **IP/CCTV:** select **Live Camera → IP / CCTV stream**, enter the camera/NVR's full stream URL in the masked field, then **Start analysis**. Example format: `rtsp://username:password@192.168.1.20:554/stream-path` (the path comes from your camera settings). A camera web login page is not a video stream. Local runs also accept `CRASHZERO_STREAM_URL` as a fallback. OpenCV FFmpeg supports RTSP/RTSPS/HTTP where the backend and camera codec permit it. Never commit credential-bearing URLs.
@@ -111,7 +117,7 @@ See [HACKATHON_DEMO.md](HACKATHON_DEMO.md) for the presentation sequence, [TECHN
 
 Detailed measured results and remaining validation gaps: [VALIDATION.md](VALIDATION.md). The existing hosted entry point `cloud/app.py` remains a read-only V1 demo via `app_v1.py`; V2 camera/evidence workflows run locally.
 
-For **V2 Community Cloud deployment**, use `cloud/v2/app.py` (Python 3.12), not the legacy `cloud/app.py`. This hosted mode supports uploads/demos, CPU inference, first-use model download and separate temporary storage for each browser session. See [cloud/v2/README.md](cloud/v2/README.md). Physical device cameras remain local-only; actual cloud build/performance still require deployment validation.
+For **Community Cloud deployment**, use `cloud/v2/app.py` (Python 3.12), not the legacy `cloud/app.py`. This hosted mode supports both modules, uploads/demos, CPU inference, first-use detector download and separate temporary storage for each browser session. See [cloud/v2/README.md](cloud/v2/README.md). Physical device cameras remain local-only; actual cloud build/performance still require deployment validation.
 
 The Incidents screen defaults to **Selected video** and shows the latest analysis run for that source in the current browser session. Changing the source does not reuse another video's results; select **Start analysis** for a new video. **All saved incidents** retains the full history, including older records created before source/run metadata was added. The selected demo or uploaded file is retained when switching screens, and incident evidence status refreshes while analysis runs.
 
