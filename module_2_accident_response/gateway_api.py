@@ -11,6 +11,11 @@ app=FastAPI(title='CrashZero Android Gateway',docs_url=None,redoc_url=None)
 repo=AccidentRepository(Module2Config.load().db_path)
 ALLOWED_STATUSES={'RECEIVED','DIALING_REQUESTED','REQUIRES_CONFIRMATION','CALL_ACTIVE','CALL_ENDED','FAILED'}
 
+@app.get('/')
+def landing():
+    return {'service':'CrashZero Android Gateway','status':'running',
+            'next_step':'Enter this address in the Android app Server URL field, then tap Test Connection.'}
+
 class StatusUpdate(BaseModel):
     status: str
     detail: str|None=Field(default=None,max_length=300)

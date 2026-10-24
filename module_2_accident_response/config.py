@@ -15,6 +15,8 @@ class Module2Config:
     post_event_seconds: float = 10.0
     likely_threshold: float = 0.72
     minimum_track_observations: int = 6
+    suspicion_threshold: float = 0.45
+    high_confidence_threshold: float = 0.72
 
     @classmethod
     def load(cls, root=None, data_dir=None):
@@ -23,4 +25,6 @@ class Module2Config:
         data.mkdir(parents=True,exist_ok=True)
         evidence=data/'evidence'; evidence.mkdir(exist_ok=True)
         return cls(project,data/'module2.sqlite3',evidence,project/'models/yolo11n.pt',
-                   project/'models/crash_temporal.pt')
+                   project/'models/crash_temporal.pt',
+                   suspicion_threshold=float(os.getenv('SUSPICION_THRESHOLD', '0.45')),
+                   high_confidence_threshold=float(os.getenv('HIGH_CONFIDENCE_THRESHOLD', '0.72')))

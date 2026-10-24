@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib
 import math
+import os
 import uuid
 
 import cv2
@@ -9,7 +10,9 @@ import numpy as np
 import torch
 
 from module_2_accident_response.temporal import load_temporal_model
+from .candidates import group_candidates, suspicion_threshold
 from .config import TestLabConfig
+from .evidence import capture_pair
 
 
 FRAME_COUNT = 16
@@ -74,7 +77,7 @@ class TestVideoAnalyzer:
             raise RuntimeError('MPS was requested but is unavailable.')
         self.device = device
 
-    def analyze(self, path, source_name=None, progress=None):
+    def analyze(self, path, source_name=None, progress=None, candidate_threshold=None, cooldown=None):
         path = Path(path)
         model, threshold = load_temporal_model(self.config.model_path, self.device)
         if model is None:
@@ -131,7 +134,23 @@ class TestVideoAnalyzer:
 
         decision = classify_scores(scores, threshold, duration, verification_threshold)
         test_id = 'CZ-TEST-' + uuid.uuid4().hex[:10].upper()
-        evidence_paths = self._evidence_frames(path, test_id, decision['event_timestamp'], duration)
+        lower = (suspicion_threshold(threshold) if candidate_threshold is None
+                 else max(0., min(threshold, float(candidate_threshold))))
+        if cooldown is None:
+            cooldown = max(0.0, float(os.getenv('SUSPICION_COOLDOWN_SECONDS', '3.0')))
+        candidates = group_candidates(scores, threshold, lower, cooldown,
+                                      verification_threshold)
+        events = []
+        for number, candidate in enumerate(candidates, 1):
+            event_id = f'{test_id}-{number:03d}'
+            paths, actual_times, limitation = capture_pair(
+                path, self.config.evidence_dir / event_id, candidate['timestamp'])
+            events.append({'event_id': event_id, 'timestamp': candidate['timestamp'],
+                           'score': candidate['score'], 'reason': candidate['reason'],
+                           'original_detected': candidate['original_detected'],
+                           'evidence_paths': paths, 'frame_timestamps': actual_times,
+                           'evidence_limitation': limitation, 'status': 'PENDING'})
+        evidence_paths = [path for event in events for path in event['evidence_paths']]
         digest = hashlib.sha256()
         with path.open('rb') as source:
             for block in iter(lambda: source.read(1024 * 1024), b''):
@@ -143,28 +162,10 @@ class TestVideoAnalyzer:
             'source_path': str(path), 'source_sha256': digest.hexdigest(),
             'result': decision['result'], 'event_timestamp': decision['event_timestamp'],
             'model_score': decision['model_score'], 'threshold': threshold,
+            'suspicion_threshold': lower, 'events': events,
             'duration_seconds': duration, 'windows_analyzed': len(scores),
             'evidence_paths': [str(item) for item in evidence_paths],
             'decision_basis': decision['basis'],
             'model_name': ('two-model temporal consensus · 16 frames at 4 FPS'
                            if verifier is not None else 'crash_temporal.pt · 16 frames at 4 FPS'),
         }
-
-    def _evidence_frames(self, path, test_id, event_timestamp, duration):
-        center = event_timestamp if event_timestamp is not None else duration / 2
-        timestamps = sorted(set(max(0.0, min(duration, center + offset))
-                                for offset in (-1.5, 0.0, 1.5)))
-        folder = self.config.evidence_dir / test_id
-        folder.mkdir(parents=True, exist_ok=True)
-        cap = cv2.VideoCapture(str(path))
-        saved = []
-        for number, timestamp in enumerate(timestamps, start=1):
-            cap.set(cv2.CAP_PROP_POS_MSEC, timestamp * 1000)
-            ok, frame = cap.read()
-            if not ok:
-                continue
-            destination = folder / f'{number:02d}_{timestamp:.2f}s.jpg'
-            if cv2.imwrite(str(destination), frame):
-                saved.append(destination)
-        cap.release()
-        return saved

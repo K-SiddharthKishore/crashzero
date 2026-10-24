@@ -26,12 +26,20 @@ def test_real_call_queues_for_android_and_deduplicates(tmp_path,monkeypatch):
     first=service.submit(incident);second=service.submit(incident)
     assert first['status']=='QUEUED' and second['id']==first['id'] and len(repo.calls())==1
 
+def test_temporal_auto_calling_is_explicitly_opt_in(tmp_path,monkeypatch):
+    service=CallService(AccidentRepository(tmp_path/'m2.sqlite3'))
+    monkeypatch.setenv('M2_TEMPORAL_AUTO_CALLS_ENABLED','false')
+    assert service.settings()['temporal_auto'] is False
+    monkeypatch.setenv('M2_TEMPORAL_AUTO_CALLS_ENABLED','true')
+    assert service.settings()['temporal_auto'] is True
+
 def test_gateway_authenticated_poll_and_status(tmp_path,monkeypatch):
     import module_2_accident_response.gateway_api as api
     repo=AccidentRepository(tmp_path/'m2.sqlite3');monkeypatch.setattr(api,'repo',repo)
     monkeypatch.setenv('M2_GATEWAY_TOKEN','x'*32);monkeypatch.setenv('M2_REAL_CALLS_ENABLED','true');monkeypatch.setenv('M2_CALL_KILL_SWITCH','false')
     repo.call({'id':'m2-call-one','incident_id':None,'kind':'test','mode':'android_gateway','destination':'+919999999999','message':'test','status':'QUEUED'})
     client=TestClient(api.app);headers={'Authorization':'Bearer '+'x'*32}
+    assert client.get('/').json()['status']=='running'
     assert client.get('/api/v1/calls/next').status_code==401
     found=client.get('/api/v1/calls/next',headers=headers).json()['call'];assert found['id']=='m2-call-one'
     changed=client.post('/api/v1/calls/m2-call-one/status',headers=headers,json={'status':'RECEIVED'});assert changed.json()['status']=='RECEIVED'

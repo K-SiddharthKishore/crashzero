@@ -16,8 +16,20 @@ import torch
 
 from .config import Module2Config
 from .temporal import load_temporal_model, score_rgb_frames
+from test_lab.evidence import capture_pair
 
 ROAD={0:'person',1:'bicycle',2:'car',3:'motorcycle',5:'bus',7:'truck'}
+
+
+def evidence_timestamp(candidate):
+    """Move a pre-impact convergence signal toward its estimated encounter."""
+    now = candidate['timestamp']
+    if candidate.get('trigger_reason') == 'Close interaction with converging tracked motion':
+        distance = candidate.get('distance', 0.)
+        closing = candidate.get('closing', 0.)
+        if closing > 0:
+            return now + min(1.5, max(.4, distance / closing))
+    return now
 
 class Module2Analyzer:
     def __init__(self, config=None): self.config=config or Module2Config.load()
@@ -63,12 +75,19 @@ class Module2Analyzer:
                     recent_scores.append({'score':score,'timestamp':event_offset,'track_ids':active_ids})
                     # Temporal evidence must persist across overlapping windows;
                     # a single noisy frame/window cannot trigger an incident.
-                    if candidate is None and sum(x['score']>=temporal_threshold for x in recent_scores)>=2:
-                        best=max((x for x in recent_scores if x['score']>=temporal_threshold),key=lambda x:x['score'])
-                        candidate={'timestamp':best['timestamp'],'track_ids':best['track_ids'],'score':best['score'],
-                                   'threshold':temporal_threshold,'temporal':True,'window_seconds':4.0}
-            elif candidate is None:
+                    lower=min(temporal_threshold,self.config.suspicion_threshold)
+                    if candidate is None and sum(x['score']>=lower for x in recent_scores)>=2:
+                        crossings=[x for x in recent_scores if x['score']>=lower]
+                        onset=crossings[0]
+                        candidate={'timestamp':onset['timestamp'],'track_ids':onset['track_ids'],
+                                   'score':max(x['score'] for x in crossings),
+                                   'threshold':temporal_threshold,'temporal':True,'window_seconds':4.0,
+                                   'high_sensitivity': max(x['score'] for x in crossings) < max(temporal_threshold,self.config.high_confidence_threshold),
+                                   'trigger_reason': 'Persistent low-confidence temporal accident prediction'}
+            if candidate is None:
                 candidate=self._candidate(histories,now)
+                if candidate:
+                    candidate['high_sensitivity']=True
             if progress and frame_index%10==0: progress(min(.99,frame_index/total))
             if candidate and now>=candidate['timestamp']+self.config.post_event_seconds: break
         cap.release()
@@ -78,39 +97,60 @@ class Module2Analyzer:
                     if temporal_model is not None else 'No sufficiently supported motion candidate was found.')
             return None,{'frames':frame_index,'reason':reason,'model':analysis_model,
                          'temporal_threshold':temporal_threshold,'maximum_temporal_score':max_score}
+        candidate = candidate | {'timestamp': evidence_timestamp(candidate)}
         incident=self._make_incident(candidate,path,camera_id,location,fps)
-        reason=('Temporal classifier exceeded its validation-selected threshold in multiple overlapping windows. Review the evidence; this model is not India-deployment validated.'
-                if candidate.get('temporal') else 'Candidate passed motion evidence only; crash-specific classifier training is not yet available.')
+        reason=(candidate.get('trigger_reason') or
+                'Temporal classifier exceeded its validation-selected threshold in multiple overlapping windows.')
         return incident,{'frames':frame_index,'reason':reason,'model':analysis_model,
                          'temporal_threshold':temporal_threshold,'maximum_temporal_score':max_score}
     def _candidate(self,histories,now):
         active=[(tid,list(h)) for tid,h in histories.items() if len(h)>=self.config.minimum_track_observations and now-h[-1][0]<.4]
         for i,(first_id,a) in enumerate(active):
             ax=np.array(a[-1][1]); av=(ax-np.array(a[-5][1]))/max(.001,a[-1][0]-a[-5][0])
+            previous=(np.array(a[-5][1])-np.array(a[-9][1]))/max(.001,a[-5][0]-a[-9][0]) if len(a)>=9 else None
+            if previous is not None and np.linalg.norm(previous)>65:
+                current_speed=float(np.linalg.norm(av))
+                old_speed=float(np.linalg.norm(previous))
+                if current_speed<old_speed*.25 and old_speed-current_speed>55:
+                    return {'timestamp':now,'track_ids':[first_id],'score':min(.85,(old_speed-current_speed)/200),
+                            'trigger_reason':'Sudden tracked vehicle deceleration'}
+                if current_speed>35 and np.dot(previous,av)/(old_speed*current_speed+1e-6)<-.35:
+                    return {'timestamp':now,'track_ids':[first_id],'score':.6,
+                            'trigger_reason':'Unexpected sharp tracked vehicle direction change'}
             for second_id,b in active[i+1:]:
                 bx=np.array(b[-1][1]); bv=(bx-np.array(b[-5][1]))/max(.001,b[-1][0]-b[-5][0])
                 distance=float(np.linalg.norm(ax-bx)); closing=float(np.dot(av-bv,(bx-ax)/(distance+1e-6)))
                 # Requires convergence plus spatial proximity; overlap alone is insufficient.
                 if distance<110 and closing>45:
                     score=min(.86,.45+closing/220+(110-distance)/300)
-                    if score>=self.config.likely_threshold:return {'timestamp':now,'track_ids':[first_id,second_id],'score':score,'distance':distance,'closing':closing}
+                    if score>=self.config.suspicion_threshold:
+                        return {'timestamp':now,'track_ids':[first_id,second_id],'score':score,
+                                'distance':distance,'closing':closing,
+                                'trigger_reason':'Close interaction with converging tracked motion'}
         return None
     def _make_incident(self,candidate,source,camera_id,location,fps):
         stamp=datetime.now(timezone.utc).strftime('%Y%m%d')
         incident_id=f'CZ-AR-{stamp}-{uuid.uuid4().hex[:6].upper()}'
         clip,screenshot=self._extract(source,candidate['timestamp'],incident_id,fps)
+        pair,timestamps,limitation=capture_pair(source,self.config.evidence_dir/incident_id,
+                                                 candidate['timestamp'])
         if candidate.get('temporal'):
             explanation=(f"A trained temporal video classifier scored {candidate['score']:.3f} across a 4-second window "
                          f"around {candidate['timestamp']:.1f}s (validation threshold {candidate['threshold']:.3f}). "
                          'This is an experimental candidate, not a confirmed crash.')
             reliability={'tracking':'supporting only','camera_motion':'not assessed','temporal_classifier':'ACCIDENT research benchmark; not Indian-deployment validated','geometry':'image-space only'}
         else:
-            explanation=f'Experimental motion evidence: tracks {candidate["track_ids"]} converged (closing {candidate["closing"]:.1f} px/s) within {candidate["distance"]:.0f} px. This is a likely candidate, not a confirmed crash.'
+            explanation=(f'Experimental motion evidence: {candidate.get("trigger_reason", "tracked motion")}. '
+                         'This is a suspected event, not a confirmed crash.')
             reliability={'tracking':'limited','camera_motion':'not assessed','temporal_classifier':'unavailable','geometry':'image-space only'}
         return {'incident_id':incident_id,'source_kind':'uploaded video','event_offset':candidate['timestamp'],'camera_id':camera_id,'location':location,
-                'state':'LIKELY_ACCIDENT','score':candidate['score'],'track_ids':candidate['track_ids'],'clip_path':str(clip),'screenshot_path':str(screenshot),
+                'state':'POSSIBLE_ACCIDENT' if candidate.get('high_sensitivity') else 'LIKELY_ACCIDENT',
+                'score':candidate['score'],'track_ids':candidate['track_ids'],'clip_path':str(clip),'screenshot_path':str(screenshot),
                 'original_recording_time':None,'reliability':reliability,'explanation':explanation,
-                'temporal_model':bool(candidate.get('temporal'))}
+                'temporal_model':bool(candidate.get('temporal')),
+                'high_sensitivity':bool(candidate.get('high_sensitivity')),
+                'source_key':source.stem,'evidence_paths':pair,
+                'frame_timestamps':timestamps,'evidence_limitation':limitation}
     def _extract(self,source,event,incident_id,fps):
         start=max(0,event-self.config.pre_event_seconds); end=event+self.config.post_event_seconds
         cap=cv2.VideoCapture(str(source)); cap.set(cv2.CAP_PROP_POS_MSEC,start*1000)
