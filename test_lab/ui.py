@@ -140,6 +140,8 @@ def render_test_lab(data_dir=None):
 
     @st.fragment(run_every=1.0)
     def live_status():
+        if st.session_state.get('cz_module') != 'TEST':
+            return
         st.caption('Stage 2 — AI Accident Verification')
         worker = st.session_state.get('test_upload_worker')
         if not worker:

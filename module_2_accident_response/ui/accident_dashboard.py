@@ -68,6 +68,8 @@ def render_dashboard(data_dir=None, hosted=False):
 
     @st.fragment(run_every=1.0)
     def live_status():
+        if st.session_state.get('cz_module') != 'Accident Response':
+            return
         current = st.session_state.get('m2_monitor')
         snapshot = current.snapshot() if current else None
         if snapshot and current.source.live and snapshot['preview'] is not None:
