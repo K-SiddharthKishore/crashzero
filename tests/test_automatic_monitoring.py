@@ -8,7 +8,8 @@ import pytest
 from module_2_accident_response.config import Module2Config
 from module_2_accident_response.monitor import AutomaticMonitor
 from module_2_accident_response.pipeline import Module2Analyzer, evidence_timestamp
-from test_lab.automatic import SessionBudget, alert_state, run_automatic_verification
+from test_lab.automatic import (SessionBudget, _effective_budget_root, alert_state,
+                                run_automatic_verification)
 from test_lab.storage import TestHistory
 
 
@@ -33,6 +34,19 @@ class FakeSource:
 class FakeModel:
     def track(self, *_args, **_kwargs):
         return [SimpleNamespace(boxes=None)]
+
+
+def test_hosted_visitors_share_one_spending_cap(tmp_path, monkeypatch):
+    monkeypatch.setenv('CRASHZERO_V2_HOSTED', '1')
+    monkeypatch.setenv('CRASHZERO_SHARED_BUDGET_DIR', str(tmp_path / 'shared'))
+    first = SessionBudget(_effective_budget_root(tmp_path / 'visitor-a'))
+    second = SessionBudget(_effective_budget_root(tmp_path / 'visitor-b'))
+    config = {'estimated_input_tokens': 100_000, 'estimated_output_tokens': 1_200,
+              'input_rate': .20, 'output_rate': 1.25, 'budget_usd': .03}
+    assert first.path == second.path
+    assert first.reserve('visitor-a:event-1', config)
+    assert not second.reserve('visitor-b:event-1', config)
+    assert second.spent() > 0
 
 
 @pytest.mark.parametrize('event_times,expected', [([], 0), ([1.0], 1),

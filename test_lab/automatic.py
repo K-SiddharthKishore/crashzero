@@ -88,6 +88,15 @@ class SessionBudget:
             return float(db.execute('SELECT COALESCE(SUM(usd),0) FROM reservations').fetchone()[0])
 
 
+def _effective_budget_root(root):
+    """Share one paid-request ledger across hosted visitors on this server."""
+    if os.getenv('CRASHZERO_V2_HOSTED') == '1':
+        return Path(os.getenv('CRASHZERO_SHARED_BUDGET_DIR',
+                              str(Path(__file__).resolve().parents[1] /
+                                  'outputs' / 'cloud_verification_budget')))
+    return Path(root)
+
+
 def run_automatic_verification(store, identity, *, kind, budget_root, client=None):
     """Make at most one request for a pending candidate; never auto-retry failures."""
     record = store.event(identity) if kind == 'test' else store.verification(identity)
@@ -102,7 +111,7 @@ def run_automatic_verification(store, identity, *, kind, budget_root, client=Non
     if client is None and not os.getenv('OPENAI_API_KEY'):
         store.fail_verification(identity, 'OpenAI verification is unavailable.')
         return store.event(identity) if kind == 'test' else store.verification(identity)
-    budget = SessionBudget(budget_root)
+    budget = SessionBudget(_effective_budget_root(budget_root))
     request_key = f'{kind}:{identity}'
     if not budget.reserve(request_key, config):
         store.fail_verification(identity, 'Verification budget exhausted or request already reserved.')
