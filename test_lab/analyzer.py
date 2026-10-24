@@ -18,7 +18,7 @@ WINDOW_SECONDS = FRAME_COUNT / SAMPLE_FPS
 UNCERTAIN_MARGIN = 0.15
 
 
-def classify_scores(scores, threshold, duration_seconds):
+def classify_scores(scores, threshold, duration_seconds, verification_threshold=None):
     """Return result metadata from one-second-stride temporal windows.
 
     A detection needs two adjacent above-threshold windows.  A lone crossing
@@ -28,24 +28,37 @@ def classify_scores(scores, threshold, duration_seconds):
         return {'result': 'Uncertain', 'event_timestamp': None, 'model_score': None,
                 'basis': 'The video is too short for one complete four-second temporal window.'}
     ordered = sorted(scores, key=lambda item: item['timestamp'])
-    above = [item for item in ordered if item['score'] >= threshold]
-    persistent = []
+    uses_verifier = verification_threshold is not None
+    above = [item for item in ordered if item['score'] >= threshold and
+             (not uses_verifier or item.get('verification_score', 0.0) >= verification_threshold)]
+    persistent_pair = None
     for first, second in zip(above, above[1:]):
         if second['timestamp'] - first['timestamp'] <= 2.01:
-            persistent.extend((first, second))
-    if persistent:
-        peak = max(persistent, key=lambda item: item['score'])
-        return {'result': 'Accident Detected', 'event_timestamp': peak['timestamp'],
-                'model_score': peak['score'],
-                'basis': ('At least two adjacent four-second motion windows exceeded the '
-                          'checkpoint threshold; the highest-scoring window is reported.')}
+            persistent_pair = (first, second)
+            break
+    if persistent_pair:
+        onset = persistent_pair[0]
+        return {'result': 'Accident Detected', 'event_timestamp': onset['timestamp'],
+                'model_score': onset['score'],
+                'basis': (('Two independently trained temporal models agreed across at least two adjacent '
+                           'four-second motion windows; the onset of the first persistent episode is reported.')
+                          if uses_verifier else
+                          ('At least two adjacent four-second motion windows exceeded the '
+                           'checkpoint threshold; the first persistent episode is reported.'))}
     peak = max(ordered, key=lambda item: item['score'])
     boundary = max(0.0, threshold - UNCERTAIN_MARGIN)
-    if above or peak['score'] >= boundary:
+    primary_signal = any(item['score'] >= boundary for item in ordered)
+    verifier_boundary = (max(0.0, verification_threshold - UNCERTAIN_MARGIN)
+                         if uses_verifier else None)
+    verifier_signal = (uses_verifier and
+                       any(item.get('verification_score', 0.0) >= verifier_boundary for item in ordered))
+    if primary_signal or verifier_signal:
         return {'result': 'Uncertain', 'event_timestamp': peak['timestamp'],
                 'model_score': peak['score'],
-                'basis': ('Evidence was borderline or did not persist across adjacent '
-                          'multi-frame windows, so no accident is asserted.')}
+                'basis': (('The baseline and hard-negative verifier did not agree with persistent evidence, '
+                           'so no accident or safe outcome is asserted.') if uses_verifier else
+                          ('Evidence was borderline or did not persist across adjacent '
+                           'multi-frame windows, so no accident is asserted.'))}
     return {'result': 'No Accident Detected', 'event_timestamp': None,
             'model_score': peak['score'],
             'basis': ('Every analyzed four-second motion window stayed below the '
@@ -66,6 +79,8 @@ class TestVideoAnalyzer:
         model, threshold = load_temporal_model(self.config.model_path, self.device)
         if model is None:
             raise RuntimeError('The existing temporal accident checkpoint is unavailable.')
+        verifier, verification_threshold = load_temporal_model(
+            self.config.verification_model_path, self.device)
         cap = cv2.VideoCapture(str(path))
         if not cap.isOpened():
             raise ValueError('Unable to decode this video.')
@@ -104,13 +119,17 @@ class TestVideoAnalyzer:
                 clips = np.asarray([frames[start:start + FRAME_COUNT] for start in batch_starts])
                 tensor = torch.from_numpy(clips).permute(0, 1, 4, 2, 3).float().div_(255.0)
                 values = torch.sigmoid(model(tensor.to(self.device))).cpu().numpy().tolist()
-                for start, value in zip(batch_starts, values):
+                verification_values = (torch.sigmoid(verifier(tensor.to(self.device))).cpu().numpy().tolist()
+                                       if verifier is not None else [None] * len(values))
+                for start, value, verification_value in zip(batch_starts, values, verification_values):
                     scores.append({'timestamp': start / SAMPLE_FPS + WINDOW_SECONDS / 2,
-                                   'score': float(value)})
+                                   'score': float(value),
+                                   **({'verification_score': float(verification_value)}
+                                      if verification_value is not None else {})})
                 if progress:
                     progress(0.45 + 0.45 * min(len(starts), batch_start + 16) / max(1, len(starts)))
 
-        decision = classify_scores(scores, threshold, duration)
+        decision = classify_scores(scores, threshold, duration, verification_threshold)
         test_id = 'CZ-TEST-' + uuid.uuid4().hex[:10].upper()
         evidence_paths = self._evidence_frames(path, test_id, decision['event_timestamp'], duration)
         digest = hashlib.sha256()
@@ -127,7 +146,8 @@ class TestVideoAnalyzer:
             'duration_seconds': duration, 'windows_analyzed': len(scores),
             'evidence_paths': [str(item) for item in evidence_paths],
             'decision_basis': decision['basis'],
-            'model_name': 'crash_temporal.pt · 16 frames at 4 FPS',
+            'model_name': ('two-model temporal consensus · 16 frames at 4 FPS'
+                           if verifier is not None else 'crash_temporal.pt · 16 frames at 4 FPS'),
         }
 
     def _evidence_frames(self, path, test_id, event_timestamp, duration):
@@ -148,4 +168,3 @@ class TestVideoAnalyzer:
                 saved.append(destination)
         cap.release()
         return saved
-

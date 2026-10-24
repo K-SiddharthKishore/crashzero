@@ -43,7 +43,7 @@ def _review_buttons(history, row, prefix):
         st.caption('Review: ' + row['review'].replace('_', ' ').title())
 
 
-def _result_card(history, row, show_video=True):
+def _result_card(history, row, key_prefix, show_video=True):
     if row['result'] == 'Accident Detected':
         st.error('Accident Detected')
     elif row['result'] == 'No Accident Detected':
@@ -65,7 +65,7 @@ def _result_card(history, row, show_video=True):
         columns = st.columns(len(images))
         for column, image in zip(columns, images):
             column.image(image, caption=Path(image).stem.split('_', 1)[-1])
-    _review_buttons(history, row, 'review_' + row['test_id'])
+    _review_buttons(history, row, key_prefix + '_review_' + row['test_id'])
 
 
 def _incorrect_review(history, rows):
@@ -152,7 +152,7 @@ def render_test_lab(data_dir=None):
         for row in latest:
             with st.container(border=True):
                 st.subheader(row['source_name'])
-                _result_card(history, row)
+                _result_card(history, row, 'latest')
 
     st.markdown('<div class="cz-section-label">TEST HISTORY</div>', unsafe_allow_html=True)
     rows = history.all()
@@ -162,7 +162,7 @@ def render_test_lab(data_dir=None):
         created = datetime.fromtimestamp(row['created_at']).strftime('%Y-%m-%d %H:%M')
         label = f"{row['source_name']} · {row['result']} · {created}"
         with st.expander(label):
-            _result_card(history, row)
+            _result_card(history, row, 'history')
 
     st.markdown('<div class="cz-section-label">MODEL IMPROVEMENT QUEUE</div>', unsafe_allow_html=True)
     _incorrect_review(history, rows)
@@ -174,4 +174,3 @@ def render_test_lab(data_dir=None):
         st.write('TEST uploads remain evaluation data. Only a human-labelled item explicitly approved above '
                  'appears in the downloadable training-candidate manifest. The deployed checkpoint is never '
                  'changed by this screen.')
-

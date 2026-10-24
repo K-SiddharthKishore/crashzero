@@ -10,6 +10,7 @@ class TestLabConfig:
     uploads_dir: Path
     evidence_dir: Path
     model_path: Path
+    verification_model_path: Path
 
     @classmethod
     def load(cls, root=None, data_dir=None):
@@ -20,5 +21,5 @@ class TestLabConfig:
         for folder in (data, uploads, evidence):
             folder.mkdir(parents=True, exist_ok=True)
         return cls(project, data, data / 'test_history.sqlite3', uploads, evidence,
-                   project / 'models' / 'crash_temporal.pt')
-
+                   project / 'models' / 'crash_temporal.pt',
+                   project / 'models' / 'crash_temporal_highway_experimental.pt')
