@@ -14,6 +14,7 @@ outputs/*.sqlite*
 outputs/*.log
 outputs/incidents/
 outputs/live/
+outputs/test_lab/
 config/cameras.local.json
 .claude/
 outputs/tracking_*.json

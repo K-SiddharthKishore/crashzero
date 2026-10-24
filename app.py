@@ -24,6 +24,7 @@ st.markdown('<style>'+(ROOT/'assets/presentation.css').read_text()+'</style>',un
 
 MODULE_ONE='Junction Intelligence'
 MODULE_TWO='Accident Response'
+MODULE_TEST='TEST'
 
 def choose_module(name):
     st.session_state.cz_module=name
@@ -36,13 +37,16 @@ if not st.session_state.get('cz_module'):
     st.markdown('<div class="cz-eyebrow">CRASHZERO / ROAD SAFETY INTELLIGENCE</div>',unsafe_allow_html=True)
     st.title('See the risk. Choose your workflow.')
     st.caption('Explore junction danger spots or review possible accident evidence. Select a module to begin.')
-    left,right=st.columns(2,gap='large')
+    left,right,test=st.columns(3,gap='large')
     with left:
         st.markdown('<div class="cz-module"><div class="cz-module-num">01 / JUNCTION INTELLIGENCE</div><h2>Find danger spots</h2><p>Upload traffic footage, follow vehicle tracks, and see where risky interactions cluster.</p></div>',unsafe_allow_html=True)
         if st.button('Open Junction Intelligence →',type='primary',use_container_width=True):choose_module(MODULE_ONE)
     with right:
         st.markdown('<div class="cz-module"><div class="cz-module-num">02 / ACCIDENT RESPONSE</div><h2>Review possible accidents</h2><p>Analyze a recording, inspect evidence, and review alert history.</p></div>',unsafe_allow_html=True)
         if st.button('Open Accident Response →',use_container_width=True):choose_module(MODULE_TWO)
+    with test:
+        st.markdown('<div class="cz-module"><div class="cz-module-num">TEST / MODEL EVALUATION</div><h2>Test accident detection</h2><p>Upload traffic videos, inspect temporal evidence, verify predictions, and collect mistakes.</p></div>',unsafe_allow_html=True)
+        if st.button('Open TEST →',use_container_width=True):choose_module(MODULE_TEST)
     st.caption('Research prototype · scores are indicators, not certified crash predictions.')
     st.stop()
 
@@ -64,6 +68,11 @@ else:
 if st.session_state.cz_module==MODULE_TWO:
     from module_2_accident_response.ui.accident_dashboard import render_dashboard
     render_dashboard(data_dir=storage_root/'module2_accident_response' if HOSTED_V2 else None)
+    st.stop()
+
+if st.session_state.cz_module==MODULE_TEST:
+    from test_lab.ui import render_test_lab
+    render_test_lab(data_dir=storage_root/'test_lab' if HOSTED_V2 else None)
     st.stop()
 
 if HOSTED_V2:
