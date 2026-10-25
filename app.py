@@ -75,11 +75,8 @@ if st.session_state.cz_module==MODULE_SETTINGS:
     st.stop()
 
 if st.session_state.cz_module==MODULE_TWO:
-    from module_2_accident_response.ui.accident_dashboard import render_dashboard
-    render_dashboard(data_dir=storage_root/'module2_accident_response' if HOSTED_V2 else None,hosted=HOSTED_V2)
-    with st.expander('TEST evaluation · uploaded recordings',expanded=False):
-        from test_lab.ui import render_test_lab
-        render_test_lab(data_dir=storage_root/'test_lab' if HOSTED_V2 else None,embedded=True)
+    from test_lab.ui import render_test_lab
+    render_test_lab(data_dir=storage_root/'test_lab' if HOSTED_V2 else None,embedded=True)
     st.stop()
 
 if st.session_state.cz_module==MODULE_TEST:

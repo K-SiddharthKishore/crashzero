@@ -118,8 +118,9 @@ def render_test_lab(data_dir=None, *, embedded=False):
     config = TestLabConfig.load(data_dir=data_dir)
     history = TestHistory(config.db_path)
     if embedded:
-        st.subheader('TEST · Accident Detection')
-        st.caption('Evaluate uploaded footage without changing the active Accident Detector monitor.')
+        st.title('Accident Detection')
+        st.markdown('<p class="cz-page-lead">Upload traffic footage to analyse and verify possible accidents.</p>',
+                    unsafe_allow_html=True)
     else:
         st.title('TEST · Accident Detection')
     # Reprocess an upload already selected in an open Streamlit session after
