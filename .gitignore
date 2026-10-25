@@ -7,6 +7,7 @@ __pycache__/
 .env*
 .streamlit/secrets.toml
 models/*.pt
+!models/crash_temporal.pt
 models/*.joblib
 data/demo/*original*
 outputs/sessions/
@@ -15,6 +16,10 @@ outputs/*.log
 outputs/incidents/
 outputs/live/
 outputs/test_lab/
+outputs/module2_accident_response/
+outputs/ui/
+outputs/verification_audit.jsonl
+uploads/
 config/cameras.local.json
 .claude/
 outputs/tracking_*.json
@@ -24,3 +29,4 @@ outputs/safety_evaluation.json
 outputs/calls/
 outputs/evaluation/
 data/evaluation/
+data/external/

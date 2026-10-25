@@ -35,23 +35,22 @@ def test_full_synthetic_collision_evidence(tmp_path,monkeypatch):
     import src.incidents.manager as module
     monkeypatch.setattr(module,'IncidentStore',lambda:store)
     app=AppTest.from_file(str(ROOT/'app.py'),default_timeout=30).run()
-    next(b for b in app.button if b.label=='Open Junction Intelligence →').click().run()
-    app.segmented_control[0].set_value('DEMO').run()
+    next(b for b in app.button if b.label=='Open Hotspot Detector').click().run()
+    app.toggle(key='m1_demo_recording').set_value(True).run()
     demo=next(s for s in app.selectbox if s.label=='Offline scenario')
     demo.set_value('Collision · SYNTHETIC TEST').run()
     app.session_state['worker']=worker
     app.session_state['analysis_by_source']={worker.source_id:worker.analysis_id}
     app.run()
-    assert app.radio[0].value=='Danger Spots'
-    app.radio[0].set_value('Incidents').run()
+    assert app.toggle(key='cz_risk_open').value is True
+    app.toggle(key='cz_incidents_open').set_value(True).run()
     assert not app.exception
     assert any('LIKELY COLLISION' in e.label for e in app.expander)
-    app.radio[0].set_value('Track vehicles').run()
     assert next(s for s in app.selectbox if s.label=='Offline scenario').value=='Collision · SYNTHETIC TEST'
     next(s for s in app.selectbox if s.label=='Offline scenario').set_value('Normal · SYNTHETIC TEST').run()
     assert not app.exception
     assert not any('LIKELY COLLISION' in e.value for e in app.error)
-    app.radio[0].set_value('Incidents').run()
+    app.run()
     assert not any('LIKELY COLLISION' in e.label for e in app.expander)
     assert any('Start analysis' in e.value for e in app.info)
     # Finish a normal run in the same store: the collision must remain hidden.
@@ -66,17 +65,16 @@ def test_full_synthetic_collision_evidence(tmp_path,monkeypatch):
     app.session_state['analysis_by_source']={worker.source_id:worker.analysis_id,normal.source_id:normal.analysis_id}
     app.run()
     assert not app.exception
-    assert app.radio[0].value=='Danger Spots'
+    assert app.toggle(key='cz_risk_open').value is True
     assert any('No danger spots detected in this video' in e.value for e in app.info)
-    app.radio[0].set_value('Incidents').run()
+    app.run()
     assert any('No likely accidents recorded for this analysis' in e.value for e in app.info)
     assert not any('LIKELY COLLISION' in e.label for e in app.expander)
     # History remains available explicitly, and changing back restores the right result.
-    app.segmented_control[0].set_value('All saved incidents').run()
+    next(s for s in app.segmented_control if s.label=='Incident scope').set_value('All saved incidents').run()
     assert any('LIKELY COLLISION' in e.label for e in app.expander)
-    app.radio[0].set_value('Track vehicles').run()
     next(s for s in app.selectbox if s.label=='Offline scenario').set_value('Collision · SYNTHETIC TEST').run()
-    app.radio[0].set_value('Incidents').run()
+    app.run()
     assert not app.exception
     assert any('LIKELY COLLISION' in e.label for e in app.expander)
 

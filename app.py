@@ -25,37 +25,41 @@ st.markdown('<style>'+(ROOT/'assets/presentation.css').read_text()+'</style>',un
 MODULE_ONE='Junction Intelligence'
 MODULE_TWO='Accident Response'
 MODULE_TEST='TEST'
+MODULE_SETTINGS='Settings'
+NAV_LABELS={
+    'Accident Hotspot Detector': MODULE_ONE,
+    'Accident Detector & Emergency Caller': MODULE_TWO,
+    'Settings': MODULE_SETTINGS,
+}
 
 def choose_module(name):
     st.session_state.cz_module=name
-    if name==MODULE_ONE:
-        st.session_state.cz_nav='Track vehicles'
-        st.session_state.setdefault('_source_mode','UPLOAD VIDEO')
+    st.session_state.cz_pending_nav=next((label for label,value in NAV_LABELS.items() if value==name),None)
+    if name==MODULE_ONE: st.session_state.setdefault('_source_mode','UPLOAD VIDEO')
     st.rerun()
 
-if not st.session_state.get('cz_module'):
-    st.markdown('<div class="cz-eyebrow">CRASHZERO / ROAD SAFETY INTELLIGENCE</div>',unsafe_allow_html=True)
-    st.title('See the risk. Choose your workflow.')
-    st.caption('Explore junction danger spots or monitor traffic for accidents. Select a module to begin.')
-    left,right,test=st.columns(3,gap='large')
-    with left:
-        st.markdown('<div class="cz-module"><div class="cz-module-num">01 / JUNCTION INTELLIGENCE</div><h2>Find danger spots</h2><p>Upload traffic footage, follow vehicle tracks, and see where risky interactions cluster.</p></div>',unsafe_allow_html=True)
-        if st.button('Open Junction Intelligence →',type='primary',use_container_width=True):choose_module(MODULE_ONE)
-    with right:
-        st.markdown('<div class="cz-module"><div class="cz-module-num">02 / ACCIDENT RESPONSE</div><h2>Monitor for accidents</h2><p>Upload a video or start a camera. See the live alert status.</p></div>',unsafe_allow_html=True)
-        if st.button('Open Accident Response →',use_container_width=True):choose_module(MODULE_TWO)
-    with test:
-        st.markdown('<div class="cz-module"><div class="cz-module-num">TEST / MODEL EVALUATION</div><h2>Test accident detection</h2><p>Upload a traffic video and see the automatic alert status.</p></div>',unsafe_allow_html=True)
-        if st.button('Open TEST →',use_container_width=True):choose_module(MODULE_TEST)
-    st.caption('Research prototype · scores are indicators, not certified crash predictions.')
-    st.stop()
+st.markdown('<div class="cz-topbar"><div class="cz-mark">✦</div><div class="cz-wordmark">Crash<em>Zero</em></div><div class="cz-tagline">AI FOR SAFER ROADS</div></div>',unsafe_allow_html=True)
+if 'cz_pending_nav' in st.session_state:
+    st.session_state.cz_primary_nav=st.session_state.pop('cz_pending_nav')
+if 'cz_primary_nav' not in st.session_state:
+    st.session_state.cz_primary_nav=next((label for label,value in NAV_LABELS.items()
+                                          if value==st.session_state.get('cz_module')),None)
+selected_nav=st.segmented_control('Main navigation',list(NAV_LABELS),
+                                   key='cz_primary_nav',label_visibility='collapsed')
+if selected_nav and NAV_LABELS[selected_nav]!=st.session_state.get('cz_module'):
+    choose_module(NAV_LABELS[selected_nav])
 
-top_left,top_right=st.columns([3,1.5])
-with top_left: st.markdown('<div class="cz-eyebrow">CRASHZERO / '+st.session_state.cz_module.upper()+'</div>',unsafe_allow_html=True)
-with top_right:
-    if st.button('← Change module',use_container_width=True):
-        st.session_state.cz_module=None
-        st.rerun()
+if not st.session_state.get('cz_module'):
+    st.markdown('<div class="cz-hero"><div class="cz-eyebrow">CRASHZERO · ROAD SAFETY INTELLIGENCE</div><h1>CrashZero<br><span>AI for Safer Roads</span></h1><p>Intelligent accident detection, hotspot analysis and emergency response.</p></div>',unsafe_allow_html=True)
+    left,right=st.columns(2,gap='large')
+    with left:
+        st.markdown('<div class="cz-module"><div class="cz-module-num">01 / TRAFFIC RISK</div><h2>Accident Hotspot Detector</h2><p>Identify high-risk traffic areas using intelligent vehicle tracking and traffic analysis.</p></div>',unsafe_allow_html=True)
+        if st.button('Open Hotspot Detector',type='primary',use_container_width=True):choose_module(MODULE_ONE)
+    with right:
+        st.markdown('<div class="cz-module"><div class="cz-module-num">02 / ACCIDENT RESPONSE</div><h2>Accident Detector & Emergency Caller</h2><p>Detect potential road accidents, verify visual evidence and initiate emergency notifications.</p></div>',unsafe_allow_html=True)
+        if st.button('Open Accident Detector',use_container_width=True):choose_module(MODULE_TWO)
+    st.caption('Research prototype · results require human review before emergency action.')
+    st.stop()
 
 if HOSTED_V2:
     if 'cloud_session_id' not in st.session_state:
@@ -65,9 +69,17 @@ if HOSTED_V2:
 else:
     storage_root = ROOT/'outputs'
 
+if st.session_state.cz_module==MODULE_SETTINGS:
+    from src.presentation_settings import render_settings
+    render_settings(storage_root,hosted=HOSTED_V2)
+    st.stop()
+
 if st.session_state.cz_module==MODULE_TWO:
     from module_2_accident_response.ui.accident_dashboard import render_dashboard
     render_dashboard(data_dir=storage_root/'module2_accident_response' if HOSTED_V2 else None,hosted=HOSTED_V2)
+    with st.expander('TEST evaluation · uploaded recordings',expanded=False):
+        from test_lab.ui import render_test_lab
+        render_test_lab(data_dir=storage_root/'test_lab' if HOSTED_V2 else None,embedded=True)
     st.stop()
 
 if st.session_state.cz_module==MODULE_TEST:
@@ -80,8 +92,8 @@ if HOSTED_V2:
 
 brand,status=st.columns([6,1])
 with brand:
-    st.title('Junction Intelligence')
-    st.caption('Upload a video · track road users · review danger spots')
+    st.title('Accident Hotspot Detector')
+    st.markdown('<p class="cz-page-lead">Analyse traffic movement and identify high-risk zones.</p>',unsafe_allow_html=True)
 worker=st.session_state.get('worker')
 snapshot=worker.get() if worker else None
 
@@ -91,13 +103,11 @@ def advance_completed(current,state):
             and current.source_id==(st.session_state.get('selected_source') or {}).get('id')
             and st.session_state.get('cz_autonavigated_analysis')!=current.analysis_id):
         st.session_state.cz_autonavigated_analysis=current.analysis_id
-        st.session_state.cz_requested_route='Danger Spots'
+        st.session_state.cz_risk_open=True
         return True
     return False
 
 if snapshot: advance_completed(worker,snapshot)
-requested_route=st.session_state.pop('cz_requested_route',None)
-if requested_route: st.session_state.cz_nav=requested_route
 @st.fragment(run_every=1.)
 def system_status():
     current=st.session_state.get('worker')
@@ -106,8 +116,7 @@ def system_status():
     if current and state=='COMPLETED' and advance_completed(current,current.get()):
         st.rerun(scope='app')
 with status: system_status()
-page=st.radio('Navigation',['Track vehicles','Danger Spots','Incidents'],horizontal=True,
-              label_visibility='collapsed',key='cz_nav')
+page='Track vehicles'
 
 with st.expander('Advanced settings · camera, calibration and performance'):
     a,b,c=st.columns(3)
@@ -158,34 +167,42 @@ def monitor():
     if s['status']=='COMPLETED' and advance_completed(current,s):
         st.rerun(scope='app')
     st.markdown('<div class="cz-section-label">TRACKING PREVIEW</div>',unsafe_allow_html=True)
-    if s['frame'] is not None: st.image(s['frame'],width='stretch')
-    else: st.info('Connecting source and loading the local model…')
-    st.caption(f"{current.camera.name} · {current.source_kind}")
-    if current.source.live:
-        st.caption('Live camera · showing the newest available frame')
-        if st.button('View Danger Spots →',key='live_zones'):
-            st.session_state.cz_requested_route='Danger Spots'
-            st.rerun(scope='app')
-    elif s.get('progress') is not None:
-        st.progress(s['progress'],text=f"Analyzing video · {s['progress']:.0%}")
-    else:
-        st.caption('Analyzing video · progress is unavailable for this file')
-    metrics=st.columns(4)
-    for column,label,value in zip(metrics,['Road users','Active conflicts','Near misses','Processing speed'],
-                                  [s.get('road_users',0),s.get('conflicts',0),s.get('near_misses',0),f"{s.get('fps',0):.1f} FPS"]):
-        column.metric(label,value)
-    render_status(s)
+    left,right=st.columns([1.8,1],gap='large')
+    with left:
+        if s['frame'] is not None: st.image(s['frame'],width='stretch')
+        else: st.info('Connecting source and loading the local model…')
+        st.caption(f"{current.camera.name} · {current.source_kind}")
+        if current.source.live:
+            st.caption('Live camera · showing the newest available frame')
+            if st.button('View Key Risk Areas →',key='live_zones'):
+                st.session_state.cz_risk_open=True
+                st.rerun(scope='app')
+        elif s.get('progress') is not None:
+            st.progress(s['progress'],text=f"Analysing video · {s['progress']:.0%}")
+        else:
+            st.caption('Analysing video · progress is unavailable for this file')
+    with right:
+        st.markdown('#### Risk Analysis')
+        metrics=st.columns(2)
+        for column,label,value in zip(metrics,['Vehicles detected','Risk events'],
+                                      [s.get('road_users',0),s.get('conflicts',0)]):
+            column.metric(label,value)
+        render_status(s)
     if s['status']=='STOPPED': st.info('Analysis stopped. Start again to complete a video.')
-    if s['status']=='COMPLETED': st.success('Analysis complete. Open Danger Spots to review the result.')
+    if s['status']=='COMPLETED': st.success('Analysis complete. Open Key Risk Areas to review the result.')
 
 if page=='Track vehicles':
-    st.markdown('<div class="cz-section-label">STEP 1 / VIDEO ANALYSIS</div>',unsafe_allow_html=True)
-    st.subheader('Track vehicles in your footage')
-    st.caption('Choose a recording or a live source, then start analysis. Completed videos open Danger Spots automatically.')
+    st.markdown('<div class="cz-section-label">STAGE 1 — TRAFFIC EVENT DETECTION</div>',unsafe_allow_html=True)
+    st.subheader('Analyse traffic movement')
+    st.caption('Choose a recording or live source. Completed video findings appear in Key Risk Areas below.')
     # Durable values survive Streamlit cleaning up widgets on other screens.
     if '_source_mode' not in st.session_state:
         st.session_state['_source_mode']=st.session_state.get('source_mode','UPLOAD VIDEO')
-    mode=st.segmented_control('Video source',['UPLOAD VIDEO','DEMO','LIVE CAMERA'],key='_source_mode')
+    source_tab=st.segmented_control('Video source',['Upload Video','Live Camera'],
+                                    default='Upload Video',key='m1_source_tab',
+                                    label_visibility='collapsed')
+    use_demo=st.toggle('Use a demo recording',key='m1_demo_recording') if source_tab=='Upload Video' else False
+    mode='LIVE CAMERA' if source_tab=='Live Camera' else 'DEMO' if use_demo else 'UPLOAD VIDEO'
     st.session_state.source_mode=mode
     selection=None
     source=None; fixture=None; source_kind='video'
@@ -287,16 +304,16 @@ if page=='Track vehicles':
     if worker and selection and getattr(worker,'source_id',None)==selection['id']: monitor()
     else:
         if running: st.info(f"{getattr(worker,'source_name',worker.camera.name)} is still being analyzed. Stop it before starting the selected video.")
-        left,right=st.columns([4.6,1])
+        left,right=st.columns([1.8,1])
         with left:
             if source and source[0]=='file': st.video(str(source[1]))
             else: st.info('Select a source and start analysis.')
             st.caption('Preview only — select Start analysis to run detection and tracking.')
         with right:
-            st.markdown('<div class="cz-setup"><b>WHAT HAPPENS NEXT</b><br><br>CrashZero follows vehicles and checks their interactions. When a recording finishes, the next screen highlights zones with observed conflicts.<br><br><b>Note:</b> zones are positions in this camera image unless the road is calibrated.</div>',unsafe_allow_html=True)
-elif page=='Danger Spots':
-    st.markdown('<div class="cz-section-label">STEP 2 / ANALYSIS RESULTS</div>',unsafe_allow_html=True)
-    st.subheader('Danger Spots')
+            st.markdown('<div class="cz-panel"><h3>Risk Analysis</h3><p>Select a source and start analysis to see observed road users, conflicts and high-risk areas. Zone positions refer to this camera image unless calibrated.</p></div>',unsafe_allow_html=True)
+if st.toggle('Show Key Risk Areas',key='cz_risk_open',value=False):
+    st.markdown('<div class="cz-section-label">ANALYSIS RESULTS</div>',unsafe_allow_html=True)
+    st.subheader('Key Risk Areas')
     st.caption('See where observed traffic conflicts clustered in the selected camera view.')
     from src.intelligence_store import IntelligenceStore
     intelligence=IntelligenceStore(storage_root/'incidents' if HOSTED_V2 else ROOT/'outputs/incidents')
@@ -335,9 +352,9 @@ elif page=='Danger Spots':
                     'Category':h['category'],'Observed events':h['count']} for h in persisted_hotspots],
                     hide_index=True,width='stretch')
         if st.button('Review incident evidence →',type='primary',key='zones_to_incidents'):
-            st.session_state.cz_requested_route='Incidents';st.rerun()
+            st.session_state.cz_incidents_open=True;st.rerun()
     else: st.info('Analyze a video to accumulate conflict locations.')
-else:
+if st.toggle('Show Incident Records & Saved Evidence',key='cz_incidents_open',value=False):
     @st.fragment(run_every=1.)
     def incident_timeline():
         st.subheader('Incidents & evidence')

@@ -34,34 +34,33 @@ def preview_items(records, submitted_evidence):
     return items
 
 
-def render_evidence_preview(records, submitted_evidence):
-    if not SHOW_DEBUG_EVIDENCE:
+def render_evidence_preview(records, submitted_evidence, *, enabled=True):
+    if not SHOW_DEBUG_EVIDENCE or not enabled:
         return
-    st.subheader('Evidence Frames Analysed')
-    items = preview_items(records, submitted_evidence)
-    if not items:
-        if any(row and row.get('status') == 'PROCESSING' for row in records):
-            st.caption('Stage 2 processing; evidence frames will appear when verification completes.')
-        elif any(row and row.get('status') == 'VERIFICATION_FAILED' and
-                 row.get('attempt_count', 0) > 0 for row in records):
-            st.caption('Stage 2 result unavailable; submitted evidence frames could not be verified.')
-        else:
-            st.write('No evidence frames submitted for verification')
-        return
-    for number, item in enumerate(items, 1):
-        with st.expander(f"Event {number} — Stage 2 Result: {item['classification']}",
-                         expanded=len(items) == 1):
-            if item['cached']:
-                st.caption('Cached verification · original evidence frames')
-            if item['pair'] is None:
-                st.caption('Original submitted JPEGs are unavailable.')
-                continue
-            left, right = st.columns(2)
-            for column, title, (jpeg, timestamp) in zip(
-                (left, right),
-                ('Frame 1 — Suspected Accident Moment',
-                 'Frame 2 — Approximately 1 Second Later'), item['pair']):
-                with column:
-                    st.markdown(f'**{title}**')
-                    st.image(jpeg, width='stretch')
-                    st.caption(f'Original video timestamp: {timestamp:.2f} s')
+    with st.expander('Evidence Frames Analysed', expanded=False):
+        items = preview_items(records, submitted_evidence)
+        if not items:
+            if any(row and row.get('status') == 'PROCESSING' for row in records):
+                st.caption('Stage 2 processing; evidence frames will appear when verification completes.')
+            elif any(row and row.get('status') == 'VERIFICATION_FAILED' and
+                     row.get('attempt_count', 0) > 0 for row in records):
+                st.caption('Stage 2 result unavailable; submitted evidence frames could not be verified.')
+            else:
+                st.write('No evidence frames submitted for verification')
+            return
+        for number, item in enumerate(items, 1):
+            with st.expander(f"Event {number} — Stage 2 Result: {item['classification']}", expanded=False):
+                if item['cached']:
+                    st.caption('Cached verification · original evidence frames')
+                if item['pair'] is None:
+                    st.caption('Original submitted JPEGs are unavailable.')
+                    continue
+                left, right = st.columns(2)
+                for column, title, (jpeg, timestamp) in zip(
+                    (left, right),
+                    ('Frame 1 — Suspected Accident Moment',
+                     'Frame 2 — Approximately 1 Second Later'), item['pair']):
+                    with column:
+                        st.markdown(f'**{title}**')
+                        st.image(jpeg, width='stretch')
+                        st.caption(f'Original video timestamp: {timestamp:.2f} s')

@@ -4,7 +4,7 @@
 
 CrashZero watches traffic before, during and after dangerous events — identifying conflict zones, detecting likely accidents and preserving the information needed for faster response.
 
-A local research prototype with a two-module chooser. **Junction Intelligence** moves from vehicle tracking to **Danger Spots** when a video finishes; **Accident Response** reviews possible accident evidence. Evidence scores are configurable heuristics, not calibrated probabilities.
+A local research prototype with three isolated workflows. **Junction Intelligence** moves from vehicle tracking to **Danger Spots** when a video finishes; **Accident Response** monitors uploaded videos and live cameras with automatic two-frame verification; **TEST** evaluates the existing temporal accident model against uploaded videos. When explicitly enabled, a verified TEST alert sends one demo call request to the approved test phone for manual dialing confirmation. Model scores are not calibrated real-world probabilities.
 
 ## Run on this Mac
 
@@ -33,7 +33,9 @@ Model path: `models/yolo11n.pt`. The local real traffic videos and generated syn
 
 ## Presentation flow
 
-Open the site and choose **Junction Intelligence** or **Accident Response**. For Module 1, upload a video and select **Start analysis**. The tracked preview shows progress and processing speed. On successful completion, the app opens **Danger Spots** for that same analysis; use **Review incident evidence** for the final step. A live camera has a manual **View Danger Spots** action because its stream does not finish. **Change module** returns to the chooser.
+Open the site and choose **Junction Intelligence**, **Accident Response**, or **TEST**. For Module 1, upload a video and select **Start analysis**. The tracked preview shows progress and processing speed. On successful completion, the app opens **Danger Spots** for that same analysis; use **Review incident evidence** for the final step. A live camera has a manual **View Danger Spots** action because its stream does not finish. **Change module** returns to the chooser.
+
+In **TEST**, upload one or more MP4/MOV/AVI/MKV files. Each complete video is scanned with overlapping four-second temporal windows. High-sensitivity suspected events, two-frame JPEG evidence, original-threshold comparison, automatic budget-limited OpenAI verification, and review decisions are retained under `outputs/test_lab/`. Set `M2_TEST_ALERT_CALLS_ENABLED=true` to send one phone-confirmed demo call request for each distinct uploaded video with a verified likely accident. The Android app must remain connected, and the user must tap its notification to dial. See [TWO_STAGE_ACCIDENT_VERIFICATION.md](TWO_STAGE_ACCIDENT_VERIFICATION.md) for setup, cost limits, and evaluation caveats.
 
 Fast uses a smaller detector input and may miss small distant road users; Detailed retains the larger input. Processing files as quickly as possible is the default. The preview is updated at up to eight frames per second while the worker continues processing sampled source frames and evidence. Without road calibration, zones identify positions in the camera image only.
 
@@ -78,10 +80,14 @@ OpenCV file / webcam / stream
 - `src/zones.py`: conflict-coordinate bins.
 - `config/settings.py`: preserved V1 motion/conflict settings.
 - `config/v2.py`, `config/bytetrack-v2.yaml`: V2 thresholds/weights and tracking configuration.
+- `test_lab/`: isolated full-video TEST inference, history, review, and evidence UI.
+- `scripts/finetune_test_reviews.py`: opt-in fine-tuning of a separate candidate checkpoint from approved human labels.
 
 ## Storage and troubleshooting
 
 Incidents and media: `outputs/incidents/`; session zones: `outputs/live/`; legacy analysis: `outputs/demo/` and `outputs/sessions/`. All new captured evidence and local configuration are Git-ignored. Incident clips and screenshots are stored as bounded SQLite BLOBs in `outputs/incidents/incidents.sqlite`, with temporary/export files held beside that database rather than in a public web directory.
+
+TEST uploads, evidence frames, and prediction history are isolated under `outputs/test_lab/`. Marking a result correct or wrong changes evaluation metrics only. It never trains or replaces a model. Incorrect predictions can receive an explicit ground-truth label and opt-in approval; use the downloaded manifest with `scripts/finetune_test_reviews.py`. The script validates file hashes and source-separated train/validation coverage, then writes `models/crash_temporal_candidate.pt` rather than overwriting the deployed checkpoint.
 
 The V3 evidence recorder keeps only a timestamped in-memory ring (10 seconds before an event) and waits for 10 seconds of post-event context. H.264 is preferred, with MP4V fallback. It writes the final clip bytes, annotated event screenshot, timestamps, status, and metadata in one SQLite transaction; a source ending early produces an explicitly partial record. The timeline in the record preserves the original irregular frame timestamps even though browser MP4 playback is sampled at the configured output rate. Retention is configured through `SafetyConfig.incident_retention_days` and `incident_max_records`; the default `-1` retains evidence until an operator sets a policy.
 

@@ -68,7 +68,7 @@ def test_finetuning_manifest_requires_explicit_approval_and_hash(tmp_path):
 def test_test_section_opens_without_touching_response_module(tmp_path, monkeypatch):
     monkeypatch.setenv('CRASHZERO_V2_HOSTED', '1')
     app = AppTest.from_file(str(ROOT / 'app.py'), default_timeout=30).run()
-    next(button for button in app.button if button.label == 'Open TEST →').click().run()
+    next(button for button in app.button if button.label == 'Open Accident Detector').click().run()
     assert not app.exception
-    assert 'TEST · Accident Detection' in [title.value for title in app.title]
+    assert any('TEST evaluation' in exp.label for exp in app.expander)
     assert not any(button.label == 'Test Call' for button in app.button)

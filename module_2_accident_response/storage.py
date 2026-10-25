@@ -189,6 +189,21 @@ class AccidentRepository:
         with self._connect() as db:
             row=db.execute('SELECT * FROM m2_call_attempts WHERE incident_id=? AND kind=?',(incident_id,kind)).fetchone()
             return dict(row) if row else None
+    def call_once(self,row):
+        """Atomically enqueue an incident alert once, even across UI sessions."""
+        with self.lock,self._connect() as db:
+            now=time.time()
+            inserted=db.execute('''INSERT OR IGNORE INTO m2_call_attempts
+                (id,incident_id,kind,mode,destination,message,status,provider_id,detail,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)''',
+                (row['id'],row['incident_id'],row['kind'],row['mode'],row.get('destination'),
+                 row['message'],row['status'],row.get('provider_id'),row.get('detail'),now,now)).rowcount
+            if inserted:
+                db.execute('INSERT INTO m2_call_status_history(call_id,status,detail,recorded_at) VALUES(?,?,?,?)',
+                           (row['id'],row['status'],row.get('detail'),now))
+            saved=db.execute('SELECT * FROM m2_call_attempts WHERE incident_id=? AND kind=?',
+                             (row['incident_id'],row['kind'])).fetchone()
+            return dict(saved)
     def call_by_id(self,identity):
         with self._connect() as db:
             row=db.execute('SELECT * FROM m2_call_attempts WHERE id=?',(identity,)).fetchone()

@@ -12,6 +12,16 @@ from .evidence_preview import render_evidence_preview
 from .storage import TestHistory
 
 
+def _send_verified_test_alert(source_sha256):
+    """Send only a phone-confirmed test alert; never dial from verification."""
+    from module_2_accident_response.alerts import CallService
+    from module_2_accident_response.config import Module2Config
+    from module_2_accident_response.storage import AccidentRepository
+
+    repo = AccidentRepository(Module2Config.load().db_path)
+    return CallService(repo).submit_verified_test_alert(source_sha256)
+
+
 def _save_upload(config, uploaded):
     content = uploaded.getvalue()
     digest = hashlib.sha256(content).hexdigest()
@@ -24,20 +34,18 @@ def _save_upload(config, uploaded):
 
 def render_alert(state, note=None):
     presentation = {
-        'ALERT': ('#7f1d1d', 'RED — ALERT'),
-        'NO ALERT': ('#14532d', 'GREEN — NO ALERT'),
-        'REVIEW': ('#57534e', 'GREY — REVIEW'),
-        'VERIFICATION UNAVAILABLE': ('#57534e', 'GREY — VERIFICATION UNAVAILABLE'),
-        'ANALYZING': ('#475569', 'ANALYZING'),
-        'NO SUSPICIOUS EVENT DETECTED': ('#475569', 'NO SUSPICIOUS EVENT DETECTED'),
-        'READY': ('#475569', 'READY'),
+        'ALERT': ('alert', 'RED — ACCIDENT DETECTED'),
+        'NO ALERT': ('safe', 'GREEN — NO ACCIDENT EVIDENCE'),
+        'REVIEW': ('review', 'GREY — NEEDS REVIEW'),
+        'VERIFICATION UNAVAILABLE': ('review', 'GREY — VERIFICATION UNAVAILABLE'),
+        'ANALYZING': ('progress', 'BLUE — ANALYSING'),
+        'NO SUSPICIOUS EVENT DETECTED': ('neutral', 'NO SUSPICIOUS EVENT DETECTED'),
+        'READY': ('neutral', 'READY TO MONITOR'),
     }
-    background, label = presentation.get(state, presentation['VERIFICATION UNAVAILABLE'])
+    tone, label = presentation.get(state, presentation['VERIFICATION UNAVAILABLE'])
     st.markdown(
-        f'<div role="status" style="background:{background};color:white;'
-        'border-radius:18px;padding:42px 24px;text-align:center;'
-        'font-size:clamp(2rem,5vw,4rem);font-weight:850;letter-spacing:.04em;'
-        f'margin:18px 0 12px">{label}</div>', unsafe_allow_html=True)
+        f'<div role="status" class="cz-result {tone}"><div class="eyebrow">VERIFICATION RESULT</div>'
+        f'<div class="title">{label}</div></div>', unsafe_allow_html=True)
     if note:
         st.caption('● System status: ' + note)
 
@@ -90,6 +98,7 @@ class UploadAnalysis:
                         # visible result; later candidates need no paid call.
                         if (verified and verified.get('status') == 'VERIFIED' and
                                 verified.get('classification') == 'LIKELY_ACCIDENT'):
+                            _send_verified_test_alert(row['source_sha256'])
                             break
                 except Exception:
                     with self.lock:
@@ -101,12 +110,18 @@ class UploadAnalysis:
 
 def _upload_changed():
     st.session_state['test_upload_generation'] = st.session_state.get('test_upload_generation', 0) + 1
+    if not st.session_state.get('test_lab_uploads'):
+        st.session_state.pop('test_saved_uploads', None)
 
 
-def render_test_lab(data_dir=None):
+def render_test_lab(data_dir=None, *, embedded=False):
     config = TestLabConfig.load(data_dir=data_dir)
     history = TestHistory(config.db_path)
-    st.title('TEST · Accident Detection')
+    if embedded:
+        st.subheader('TEST · Accident Detection')
+        st.caption('Evaluate uploaded footage without changing the active Accident Detector monitor.')
+    else:
+        st.title('TEST · Accident Detection')
     # Reprocess an upload already selected in an open Streamlit session after
     # the candidate-timing fix; a stale green result must not survive reload.
     if st.session_state.get('test_pipeline_revision') != 'temporal-gap-1.5-v1':
@@ -120,18 +135,23 @@ def render_test_lab(data_dir=None):
                                accept_multiple_files=True, key='test_lab_uploads',
                                on_change=_upload_changed)
     if uploads:
-        st.video(str(_save_upload(config, uploads[0])))
+        saved = [(_save_upload(config, upload), upload.name) for upload in uploads]
+        st.session_state['test_saved_uploads'] = [(str(path), name) for path, name in saved]
+    else:
+        saved = [(Path(path), name) for path, name in st.session_state.get('test_saved_uploads', [])]
+    if saved:
+        st.video(str(saved[0][0]))
     generation = st.session_state.get('test_upload_generation', 0)
-    if uploads and generation != st.session_state.get('test_handled_generation'):
+    if saved and generation != st.session_state.get('test_handled_generation'):
         previous = st.session_state.get('test_upload_worker')
         if previous:
             previous.stop()
-        videos = [(_save_upload(config, upload), upload.name) for upload in uploads]
+        videos = saved
         worker = UploadAnalysis(config, videos)
         st.session_state['test_upload_worker'] = worker
         st.session_state['test_handled_generation'] = generation
         worker.start()
-    elif not uploads and generation != st.session_state.get('test_handled_generation'):
+    elif not saved and generation != st.session_state.get('test_handled_generation'):
         previous = st.session_state.get('test_upload_worker')
         if previous:
             previous.stop()
@@ -140,13 +160,15 @@ def render_test_lab(data_dir=None):
 
     @st.fragment(run_every=1.0)
     def live_status():
-        if st.session_state.get('cz_module') != 'TEST':
+        if st.session_state.get('cz_module') not in ('TEST','Accident Response'):
             return
+        from src.presentation_settings import load_preferences
+        display_evidence=load_preferences(config.data_dir.parent)['show_evidence']
         st.caption('Stage 2 — AI Accident Verification')
         worker = st.session_state.get('test_upload_worker')
         if not worker:
             render_alert('READY')
-            render_evidence_preview([], history.submitted_evidence)
+            render_evidence_preview([], history.submitted_evidence,enabled=display_evidence)
             return
         ids, done, failed = worker.snapshot()
         rows = [history.get(identity) for identity in ids]
@@ -158,6 +180,31 @@ def render_test_lab(data_dir=None):
         else:
             state, note = alert_state(records, analyzing=not done)
         render_alert(state, note)
-        render_evidence_preview(records, history.submitted_evidence)
+        if state == 'ALERT':
+            from module_2_accident_response.config import Module2Config
+            from module_2_accident_response.storage import AccidentRepository
+            call_repo=AccidentRepository(Module2Config.load(
+                data_dir=config.data_dir.parent/'module2_accident_response').db_path)
+            confirmed=next((row for row in rows if row and any(
+                event.get('status') == 'VERIFIED' and
+                event.get('classification') == 'LIKELY_ACCIDENT'
+                for event in row['events'])),None)
+            call=(call_repo.call_by_incident('CZ-TEST-ALERT-'+confirmed['source_sha256'][:32],
+                                            kind='verified_test') if confirmed else None)
+            labels={'QUEUED':'Initiating Test Call','RECEIVED':'Initiating Test Call',
+                    'REQUIRES_CONFIRMATION':'Awaiting Confirmation',
+                    'DIALING_REQUESTED':'Call Initiated','CALL_ACTIVE':'Call Connected',
+                    'CALL_ENDED':'Call Ended','FAILED':'Call Failed','EXPIRED':'Call Failed',
+                    'WITHHELD':'Test Call Disabled','SIMULATED':'Test Call Disabled'}
+            title=labels.get(call['status'],'Test Call Disabled') if call else 'Test Call Disabled'
+            detail=('Tap the CrashZero phone notification to confirm dialing.'
+                    if call and call['status']=='REQUIRES_CONFIRMATION' else
+                    'The phone has not confirmed an answered call.' if call else
+                    'No phone request was sent for this result.')
+            st.markdown('<div class="cz-section-label">EMERGENCY RESPONSE</div>',
+                        unsafe_allow_html=True)
+            st.markdown(f'<div class="cz-panel"><h3>{title}</h3><p>{detail}</p></div>',
+                        unsafe_allow_html=True)
+        render_evidence_preview(records, history.submitted_evidence,enabled=display_evidence)
 
     live_status()

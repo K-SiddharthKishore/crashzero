@@ -42,6 +42,31 @@ class CallService:
         row={'id':'m2-call-'+uuid.uuid4().hex[:12],'incident_id':None if test else incident['incident_id'],'kind':'test' if test else 'automatic','mode':delivery,'destination':s['recipient'],'message':message,'status':'WITHHELD' if not ok else 'SIMULATED' if s['mode']=='mock' else 'QUEUED','detail':reason}
         self.repository.call(row)
         return row
+    def submit_verified_test_alert(self, source_sha256):
+        """Queue one phone-confirmed demo alert per uploaded TEST video."""
+        if os.getenv('M2_TEST_ALERT_CALLS_ENABLED','false').lower() != 'true':
+            return None
+        if not re.fullmatch(r'[0-9a-f]{64}', source_sha256):
+            raise ValueError('A valid uploaded-video digest is required.')
+        incident_id = 'CZ-TEST-ALERT-' + source_sha256[:32]
+        previous = self.repository.call_by_incident(incident_id, kind='verified_test')
+        if previous:
+            return previous
+        settings = self.settings()
+        allowed, reason = self._allowed(settings)
+        delivery = 'mock' if settings['mode'] == 'mock' else 'android_gateway'
+        row = {
+            'id': 'm2-call-' + uuid.uuid4().hex[:12],
+            'incident_id': incident_id,
+            'kind': 'verified_test',
+            'mode': delivery,
+            'destination': settings['recipient'],
+            'message': ('CrashZero TEST alert: Stage 2 classified a likely accident '
+                        'in uploaded footage. Review the evidence before taking action.'),
+            'status': 'WITHHELD' if not allowed else 'SIMULATED' if delivery == 'mock' else 'QUEUED',
+            'detail': reason,
+        }
+        return self.repository.call_once(row)
     def retry(self,incident_id):
         previous=self.repository.call_by_incident(incident_id)
         if not previous or previous['status'] not in ('WITHHELD','EXPIRED'):
