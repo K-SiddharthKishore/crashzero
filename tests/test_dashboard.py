@@ -46,7 +46,7 @@ def test_navigation_has_only_two_modules_and_settings():
     next(b for b in app.button if b.label == 'Open Hotspot Detector').click().run()
     assert app.segmented_control(key='m1_source_tab').value == 'Upload Video'
     app.segmented_control(key='cz_primary_nav').set_value('Accident Detector & Emergency Caller').run()
-    assert any(t.value == 'Accident Detector & Emergency Caller' for t in app.title)
+    assert any(t.value == 'Accident Detection' for t in app.title)
     app.segmented_control(key='cz_primary_nav').set_value('Settings').run()
     assert any(t.value == 'Settings' for t in app.title)
     assert not app.exception
@@ -56,18 +56,14 @@ def test_accident_result_survives_settings_navigation_without_new_analysis():
     app = AppTest.from_file(str(ROOT / 'app.py'), default_timeout=30).run()
     next(b for b in app.button if b.label == 'Open Accident Detector').click().run()
     video = ROOT / 'data/simulations/normal.mp4'
-    app.session_state['m2_saved_upload'] = {'path': str(video), 'digest': 'a' * 64}
-    fake = SimpleNamespace(
-        source=SimpleNamespace(live=False), status='COMPLETED',
-        lock=__import__('threading').RLock(), incident_ids=[],
-        snapshot=lambda: {'state':'NO SUSPICIOUS EVENT DETECTED', 'note':None,
-                          'incidents':0, 'frames':30, 'status':'COMPLETED', 'preview':None})
-    app.session_state['m2_monitor'] = fake
+    app.session_state['test_saved_uploads'] = [(str(video), 'normal.mp4')]
+    fake = SimpleNamespace(snapshot=lambda: ([], True, False))
+    app.session_state['test_upload_worker'] = fake
     app.run()
     app.segmented_control(key='cz_primary_nav').set_value('Settings').run()
     app.segmented_control(key='cz_primary_nav').set_value('Accident Detector & Emergency Caller').run()
-    assert app.session_state['m2_monitor'] is fake
-    assert app.session_state['m2_saved_upload']['path'] == str(video)
+    assert app.session_state['test_upload_worker'] is fake
+    assert app.session_state['test_saved_uploads'][0][0] == str(video)
     assert not app.exception
 
 

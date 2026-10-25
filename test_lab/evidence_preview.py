@@ -58,8 +58,8 @@ def render_evidence_preview(records, submitted_evidence, *, enabled=True):
                 left, right = st.columns(2)
                 for column, title, (jpeg, timestamp) in zip(
                     (left, right),
-                    ('Frame 1 — Suspected Accident Moment',
-                     'Frame 2 — Approximately 1 Second Later'), item['pair']):
+                    ('Frame 1 · Accident Moment →',
+                     'Frame 2 · About 1 Second Later'), item['pair']):
                     with column:
                         st.markdown(f'**{title}**')
                         st.image(jpeg, width='stretch')

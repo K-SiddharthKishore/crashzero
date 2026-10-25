@@ -56,3 +56,22 @@ h3 { letter-spacing:-.02em!important; }
 [data-testid="stAlert"] { border-radius:13px; }
 [data-testid="stDataFrame"],[data-testid="stVideo"] { border-radius:16px; overflow:hidden; }
 @media(max-width:760px){.block-container{padding:4rem .9rem 3rem}.cz-topbar{flex-wrap:wrap}.cz-tagline{width:100%;margin-left:3rem;margin-top:-.5rem}.cz-hero{padding:2rem 1.35rem}.cz-module{min-height:0;padding:1.35rem}.cz-result{padding:1.5rem}.cz-stage-row{gap:.4rem}.cz-stage{font-size:.7rem}}
+/* Compact presentation layout. */
+.block-container { padding-top:4rem; }
+h1 { font-size:clamp(1.7rem,2.8vw,2.45rem)!important; margin-bottom:.35rem!important; }
+h2 { font-size:1.4rem!important; }
+h3 { font-size:1.15rem!important; }
+.cz-hero { padding:1.7rem 2rem; margin:.8rem 0; }
+.cz-hero h1 { font-size:clamp(2rem,3.2vw,3rem)!important; }
+.cz-module { min-height:170px; padding:1.2rem 1.4rem; margin:.4rem 0; }
+.cz-section-label { margin:.6rem 0 .35rem; }
+.cz-page-lead { margin:0 0 .5rem; font-size:.95rem; }
+.cz-result { padding:1.15rem 1.25rem; border-radius:17px; margin:.1rem 0 .5rem; }
+.cz-result .title { font-size:clamp(1.4rem,2.3vw,2.2rem); line-height:1.15; }
+.cz-result .eyebrow { font-size:.65rem; letter-spacing:.12em; }
+.cz-panel,.cz-setup { padding:1rem 1.15rem; }
+[data-testid="stVerticalBlock"] { gap:.65rem; }
+[data-testid="stMetric"] { padding:.6rem .8rem; }
+[data-testid="stMetricValue"] { font-size:1.4rem; }
+[data-testid="stForm"] { border-radius:15px; background:#111c2e; }
+@media(max-width:760px){.cz-result .title{font-size:1.55rem}.cz-hero{padding:1.3rem}.cz-module{min-height:0}}

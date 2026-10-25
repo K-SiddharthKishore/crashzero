@@ -90,7 +90,7 @@ if HOSTED_V2:
 brand,status=st.columns([6,1])
 with brand:
     st.title('Accident Hotspot Detector')
-    st.markdown('<p class="cz-page-lead">Analyse traffic movement and identify high-risk zones.</p>',unsafe_allow_html=True)
+
 worker=st.session_state.get('worker')
 snapshot=worker.get() if worker else None
 
@@ -113,9 +113,14 @@ def system_status():
     if current and state=='COMPLETED' and advance_completed(current,current.get()):
         st.rerun(scope='app')
 with status: system_status()
+from src.ui_flow import render_flow
+render_flow(['Upload / Live', 'Analyse', 'Risk Zones'],
+            current=2 if snapshot and snapshot['status']=='COMPLETED' else 1 if snapshot and snapshot['status']=='MONITORING' else 0,
+            completed=(0,1) if snapshot and snapshot['status']=='COMPLETED' else (0,) if snapshot and snapshot['status']=='MONITORING' else ())
 page='Track vehicles'
 
-with st.expander('Advanced settings · camera, calibration and performance'):
+advanced_settings=st.expander('Advanced Settings')
+with advanced_settings:
     a,b,c=st.columns(3)
     camera_id=a.text_input('Camera ID',value=os.environ.get('CRASHZERO_CAMERA_ID','CAM-01'))
     camera_name=b.text_input('Camera name',value=os.environ.get('CRASHZERO_CAMERA_NAME','Local camera'))
@@ -135,7 +140,11 @@ with st.expander('Advanced settings · camera, calibration and performance'):
 def render_status(s):
     st.caption(s['status'])
     recent_likely=bool(s.get('results') and s['results'][-1]['state'].startswith('LIKELY') and s['timestamp']-s['results'][-1].get('verified_at',0)<8)
-    st.metric('LIVE RISK','CRITICAL' if recent_likely else 'HIGH' if s.get('candidates') else category(s['risk']))
+    risk_label='CRITICAL' if recent_likely else 'HIGH' if s.get('candidates') else category(s['risk'])
+    risk_display={'LOW':('GREEN — LOW','green'),'MODERATE':('AMBER — MEDIUM','orange'),
+                  'HIGH':('RED — HIGH','red'),'CRITICAL':('RED — HIGH','red')}
+    label,color=risk_display.get(risk_label,('RISK UNAVAILABLE','gray'))
+    st.badge(label,icon=':material/traffic:',color=color)
     if s.get('candidates'):
         st.warning('POSSIBLE ACCIDENT · VERIFYING…')
         for e in s['candidates']:
@@ -184,14 +193,12 @@ def monitor():
         for column,label,value in zip(metrics,['Vehicles detected','Risk events'],
                                       [s.get('road_users',0),s.get('conflicts',0)]):
             column.metric(label,value)
+        st.metric('High-risk zones',sum(z['risk']=='HIGH' for z in conflict_zones(s.get('events',[]))))
         render_status(s)
     if s['status']=='STOPPED': st.info('Analysis stopped. Start again to complete a video.')
     if s['status']=='COMPLETED': st.success('Analysis complete. Open Key Risk Areas to review the result.')
 
 if page=='Track vehicles':
-    st.markdown('<div class="cz-section-label">STAGE 1 — TRAFFIC EVENT DETECTION</div>',unsafe_allow_html=True)
-    st.subheader('Analyse traffic movement')
-    st.caption('Choose a recording or live source. Completed video findings appear in Key Risk Areas below.')
     # Durable values survive Streamlit cleaning up widgets on other screens.
     if '_source_mode' not in st.session_state:
         st.session_state['_source_mode']=st.session_state.get('source_mode','UPLOAD VIDEO')
@@ -273,13 +280,14 @@ if page=='Track vehicles':
         st.session_state.selected_source=selection
     elif not (worker and worker.thread and worker.thread.is_alive()):
         st.session_state.selected_source=None
-    speed_mode=st.radio('Analysis quality',['Fast','Detailed'],horizontal=True,
-        help='Fast uses 416 px detector input; Detailed uses 640 px and better preserves small distant road users.')
-    pace_video=st.checkbox('Play at normal speed',value=False,disabled=bool(source and source[0]!='file'),
-        help='Leave off to analyze files as quickly as possible. Live cameras always use the newest available frame.')
-    start,stop,_=st.columns([1,1,5])
+    with advanced_settings:
+        speed_mode=st.radio('Analysis quality',['Fast','Detailed'],horizontal=True,
+            help='Fast uses 416 px detector input; Detailed uses 640 px and better preserves small distant road users.')
+        pace_video=st.checkbox('Play at normal speed',value=False,disabled=bool(source and source[0]!='file'),
+            help='Leave off to analyze files as quickly as possible. Live cameras always use the newest available frame.')
+    start,stop,_=st.columns([2,1,2])
     running=bool(worker and worker.thread and worker.thread.is_alive())
-    if start.button('Start analysis',type='primary',disabled=not source or running):
+    if start.button('Start analysis',type='primary',icon=':material/play_arrow:',use_container_width=True,disabled=not source or running):
         from src.live import AnalysisWorker
         from src.video.source import Camera,VideoFileSource,WebcamSource,StreamSource
         kind,value=source
@@ -297,7 +305,7 @@ if page=='Track vehicles':
             **({'calibration':calibration} if calibration is not None else {})).start()
         st.session_state.setdefault('analysis_by_source',{})[selection['id']]=st.session_state.worker.analysis_id
         st.rerun()
-    if stop.button('Stop analysis',disabled=not running): worker.stop();st.rerun()
+    if stop.button('Stop analysis',icon=':material/stop:',use_container_width=True,disabled=not running): worker.stop();st.rerun()
     if worker and selection and getattr(worker,'source_id',None)==selection['id']: monitor()
     else:
         if running: st.info(f"{getattr(worker,'source_name',worker.camera.name)} is still being analyzed. Stop it before starting the selected video.")
@@ -305,9 +313,9 @@ if page=='Track vehicles':
         with left:
             if source and source[0]=='file': st.video(str(source[1]))
             else: st.info('Select a source and start analysis.')
-            st.caption('Preview only — select Start analysis to run detection and tracking.')
+
         with right:
-            st.markdown('<div class="cz-panel"><h3>Risk Analysis</h3><p>Select a source and start analysis to see observed road users, conflicts and high-risk areas. Zone positions refer to this camera image unless calibrated.</p></div>',unsafe_allow_html=True)
+            st.markdown('<div class="cz-panel"><h3>Risk Analysis</h3><p>Start analysis to see risk zones.</p></div>',unsafe_allow_html=True)
 if st.toggle('Show Key Risk Areas',key='cz_risk_open',value=False):
     st.markdown('<div class="cz-section-label">ANALYSIS RESULTS</div>',unsafe_allow_html=True)
     st.subheader('Key Risk Areas')

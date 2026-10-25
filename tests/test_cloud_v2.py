@@ -1,7 +1,7 @@
 from streamlit.testing.v1 import AppTest
 
 from config.settings import ROOT
-from module_2_accident_response.config import Module2Config
+from test_lab.config import TestLabConfig as LabConfig
 
 
 def _open_hotspot(app):
@@ -52,5 +52,5 @@ def test_hosted_module_two_uses_session_storage(monkeypatch):
         assert not app.exception
     assert apps[0].session_state['cloud_session_id'] != apps[1].session_state['cloud_session_id']
     for app in apps:
-        data_dir = ROOT/'outputs/sessions/cloud'/app.session_state['cloud_session_id']/'module2_accident_response'
-        assert Module2Config.load(data_dir=data_dir).db_path.exists()
+        data_dir = ROOT/'outputs/sessions/cloud'/app.session_state['cloud_session_id']/'test_lab'
+        assert LabConfig.load(data_dir=data_dir).db_path.exists()

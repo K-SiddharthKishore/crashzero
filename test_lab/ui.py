@@ -37,10 +37,10 @@ def render_alert(state, note=None):
         'ALERT': ('alert', 'RED — ACCIDENT DETECTED'),
         'NO ALERT': ('safe', 'GREEN — NO ACCIDENT EVIDENCE'),
         'REVIEW': ('review', 'GREY — NEEDS REVIEW'),
-        'VERIFICATION UNAVAILABLE': ('review', 'GREY — VERIFICATION UNAVAILABLE'),
-        'ANALYZING': ('progress', 'BLUE — ANALYSING'),
+        'VERIFICATION UNAVAILABLE': ('review', 'VERIFICATION UNAVAILABLE'),
+        'ANALYZING': ('progress', 'ANALYSING VIDEO'),
         'NO SUSPICIOUS EVENT DETECTED': ('neutral', 'NO SUSPICIOUS EVENT DETECTED'),
-        'READY': ('neutral', 'READY TO MONITOR'),
+        'READY': ('neutral', 'READY TO ANALYSE'),
     }
     tone, label = presentation.get(state, presentation['VERIFICATION UNAVAILABLE'])
     st.markdown(
@@ -119,8 +119,7 @@ def render_test_lab(data_dir=None, *, embedded=False):
     history = TestHistory(config.db_path)
     if embedded:
         st.title('Accident Detection')
-        st.markdown('<p class="cz-page-lead">Upload traffic footage to analyse and verify possible accidents.</p>',
-                    unsafe_allow_html=True)
+        st.caption('Upload a traffic video. Analysis starts automatically.')
     else:
         st.title('TEST · Accident Detection')
     # Reprocess an upload already selected in an open Streamlit session after
@@ -132,6 +131,19 @@ def render_test_lab(data_dir=None, *, embedded=False):
         st.session_state['test_upload_worker'] = None
         st.session_state['test_handled_generation'] = None
         st.session_state['test_pipeline_revision'] = 'temporal-gap-1.5-v1'
+    @st.fragment(run_every=1.0)
+    def upload_flow():
+        from src.ui_flow import render_flow
+        active = st.session_state.get('test_upload_worker')
+        if active:
+            _, done, failed = active.snapshot()
+            render_flow(['Upload', 'AI Analysis', 'Result'],
+                        current=2 if done else 1,
+                        completed=(0, 1) if done and not failed else (0,))
+        else:
+            render_flow(['Upload', 'AI Analysis', 'Result'])
+    upload_flow()
+
     uploads = st.file_uploader('Upload traffic video', type=['mp4', 'mov', 'avi', 'mkv'],
                                accept_multiple_files=True, key='test_lab_uploads',
                                on_change=_upload_changed)
@@ -140,8 +152,6 @@ def render_test_lab(data_dir=None, *, embedded=False):
         st.session_state['test_saved_uploads'] = [(str(path), name) for path, name in saved]
     else:
         saved = [(Path(path), name) for path, name in st.session_state.get('test_saved_uploads', [])]
-    if saved:
-        st.video(str(saved[0][0]))
     generation = st.session_state.get('test_upload_generation', 0)
     if saved and generation != st.session_state.get('test_handled_generation'):
         previous = st.session_state.get('test_upload_worker')
@@ -165,7 +175,6 @@ def render_test_lab(data_dir=None, *, embedded=False):
             return
         from src.presentation_settings import load_preferences
         display_evidence=load_preferences(config.data_dir.parent)['show_evidence']
-        st.caption('Stage 2 — AI Accident Verification')
         worker = st.session_state.get('test_upload_worker')
         if not worker:
             render_alert('READY')
@@ -180,7 +189,14 @@ def render_test_lab(data_dir=None, *, embedded=False):
             state, note = 'VERIFICATION UNAVAILABLE', 'Video analysis unavailable.'
         else:
             state, note = alert_state(records, analyzing=not done)
-        render_alert(state, note)
+        if saved:
+            video_column, result_column = st.columns([1.65, 1], gap='medium')
+            with video_column:
+                st.video(str(saved[0][0]))
+            with result_column:
+                render_alert(state, note)
+        else:
+            render_alert(state, note)
         if state == 'ALERT':
             from module_2_accident_response.config import Module2Config
             from module_2_accident_response.storage import AccidentRepository

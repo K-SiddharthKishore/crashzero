@@ -70,5 +70,7 @@ def test_test_section_opens_without_touching_response_module(tmp_path, monkeypat
     app = AppTest.from_file(str(ROOT / 'app.py'), default_timeout=30).run()
     next(button for button in app.button if button.label == 'Open Accident Detector').click().run()
     assert not app.exception
-    assert any('TEST evaluation' in exp.label for exp in app.expander)
+    assert [title.value for title in app.title] == ['Accident Detection']
+    assert len(app.get('file_uploader')) == 1
+    assert not any('TEST evaluation' in exp.label for exp in app.expander)
     assert not any(button.label == 'Test Call' for button in app.button)
